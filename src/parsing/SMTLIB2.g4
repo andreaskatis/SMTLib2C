@@ -1,4 +1,4 @@
-grammar SMTLIB;
+grammar SMTLIB2;
 
 program: (declare | body | check)* EOF;
 
@@ -6,20 +6,15 @@ declare: '(' 'declare-fun' ID '(' ')' type ')';
 
 body: '(' 'assert' '(' letexp ')' ')';
 
-check: '(check-sat)' -> skip;
+check: CS;
 
-letexp: 'let' '(' varDecl* ')' '(' letbody ')';
+letexp: 'let' '(' varDecl* ')' '(' letexp ')';
 
-varDecl: '(' ID expr ')'
-
-letbody: letexp;
+varDecl: '(' ID expr ')';
 
 type: 'Int'                                              # intType
     | 'Bool'                                             # boolType
     ;
-
-
-lhs: eID (',' eID)*;
 
 expr: ID                                                       # idExpr
     | INT                                                      # intExpr
@@ -51,5 +46,6 @@ WS: [ \t\n\r\f]+ -> skip;
 
 SL_COMMENT: '//' (~[%\n\r] ~[\n\r]* | /* empty */) ('\r'? '\n')? -> skip;
 ML_COMMENT: '(*' .*? '*)' -> skip;
+CS: '(check-sat)' -> skip;
 
 ERROR: .;
