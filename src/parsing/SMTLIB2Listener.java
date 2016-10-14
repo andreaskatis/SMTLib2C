@@ -102,6 +102,18 @@ public interface SMTLIB2Listener extends ParseTreeListener {
 	 */
 	void exitBoolType(SMTLIB2Parser.BoolTypeContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code realType}
+	 * labeled alternative in {@link SMTLIB2Parser#type}.
+	 * @param ctx the parse tree
+	 */
+	void enterRealType(SMTLIB2Parser.RealTypeContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code realType}
+	 * labeled alternative in {@link SMTLIB2Parser#type}.
+	 * @param ctx the parse tree
+	 */
+	void exitRealType(SMTLIB2Parser.RealTypeContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code idExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.
 	 * @param ctx the parse tree
@@ -173,6 +185,18 @@ public interface SMTLIB2Listener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitNotExpr(SMTLIB2Parser.NotExprContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code negateExpr}
+	 * labeled alternative in {@link SMTLIB2Parser#expr}.
+	 * @param ctx the parse tree
+	 */
+	void enterNegateExpr(SMTLIB2Parser.NegateExprContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code negateExpr}
+	 * labeled alternative in {@link SMTLIB2Parser#expr}.
+	 * @param ctx the parse tree
+	 */
+	void exitNegateExpr(SMTLIB2Parser.NegateExprContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code binaryExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.

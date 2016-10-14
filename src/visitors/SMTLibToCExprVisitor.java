@@ -20,11 +20,18 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
             String opName = e.op.name();
             CBinaryOp op = CBinaryOp.fromString(opName);
             CExpr rightExpr = e.right.accept(this);
-            if (opName.equals(CBinaryOp.EQUAL.name())) {
-                return new CAssignment(new CIdExpr(leftExpr.toString()), rightExpr);
-            } else {
+//            if (opName.equals(CBinaryOp.EQUAL.name())) {
+//                return new CAssignment(new CIdExpr(leftExpr.toString()), rightExpr);
+//            } else {
                 return new CBinaryExpr(leftExpr, op, rightExpr);
-            }
+//            }
+        }
+
+        @Override
+        public CExpr visit(AssignExpr e) {
+            CExpr leftExpr = e.lhs.accept(this);
+            CExpr rightExpr = e.expr.accept(this);
+            return new CAssignment(leftExpr, rightExpr);
         }
 
         @Override
@@ -39,7 +46,8 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
         }
 
         @Override
-        public CExpr visit(IdExpr e) { return new CIdExpr(e.id);
+        public CExpr visit(IdExpr e) {
+            return new CIdExpr(e.id);
         }
 
         @Override

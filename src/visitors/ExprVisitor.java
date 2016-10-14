@@ -3,6 +3,7 @@ package visitors;
 import skolem.*;
 
 public interface ExprVisitor<T> {
+    T visit(AssignExpr e);
     T visit(BinaryExpr e);
     T visit(BoolExpr e);
     T visit(CastExpr e);

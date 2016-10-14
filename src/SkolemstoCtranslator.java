@@ -26,20 +26,34 @@ public class SkolemstoCtranslator {
 
         String functionName = "skolem_";
 
-        for (VarDecl var : scratch.skolems.get(0).inputs){
+        for (VarDecl var : scratch.inputs) {
             NamedType vartype = (NamedType) var.type;
             CArrayDecl variable =
                     new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
             vars.add(variable);
         }
 
-        for (VarDecl var : scratch.skolems.get(0).outputs){
+        for (VarDecl var : scratch.outputs) {
             NamedType vartype = (NamedType) var.type;
             CArrayDecl variable =
                     new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
             outputs.add(variable);
             vars.add(variable);
         }
+//        for (VarDecl var : scratch.skolems.get(0).inputs){
+//            NamedType vartype = (NamedType) var.type;
+//            CArrayDecl variable =
+//                    new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
+//            vars.add(variable);
+//        }
+//
+//        for (VarDecl var : scratch.skolems.get(0).outputs){
+//            NamedType vartype = (NamedType) var.type;
+//            CArrayDecl variable =
+//                    new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
+//            outputs.add(variable);
+//            vars.add(variable);
+//        }
 
         int i = 0;
 
@@ -56,11 +70,15 @@ public class SkolemstoCtranslator {
             equations.clear();
             i++;
         }
-        CMoveHistory mh = addMoveHistory(arraysize, outputs);
-        functions.add(mh);
-        functions.add(addUpdateFunction(init, funcalls, mh));
-        CProgram program = new CProgram(init, filename, vars, functions);
-        return program;
+        if (arraysize > 1) {
+            CMoveHistory mh = addMoveHistory(arraysize, outputs);
+            functions.add(mh);
+            functions.add(addUpdateFunction(init, funcalls, mh));
+            return new CProgram(init, filename, vars, functions);
+
+        } else {
+            return new CProgram(filename, vars, functions);
+        }
     }
 
 
@@ -109,7 +127,7 @@ public class SkolemstoCtranslator {
         SMTLibToCTypeVisitor typeVisitor = new SMTLibToCTypeVisitor();
         CVarDecl start = new CVarDecl("start", new CNamedType("clock_t"),
                 new CFunctionCall(new CClockFunction().name));
-        CVarDecl diff = new CVarDecl("diff", new CNamedType("clock_t"));
+        CVarDecl diff = new CVarDecl("clock_diff", new CNamedType("clock_t"));
         CVarDecl sec = new CVarDecl("sec", CNamedType.DOUBLE);
         clockvars.add(start);
         clockvars.add(diff);
@@ -132,7 +150,7 @@ public class SkolemstoCtranslator {
         CAssignment secassign = new CAssignment(secid, secexp);
         body.add(secassign);
 
-        CIdExpr text = new CIdExpr("\"Time taken %f seconds %f milliseconds\"");
+        CIdExpr text = new CIdExpr("\"Time taken %f seconds %f milliseconds\\n\"");
         CBinaryExpr msec = new CBinaryExpr(secid, CBinaryOp.MULTIPLY, thousexp);
         pbody.add(text);
         pbody.add(secid);
@@ -150,21 +168,26 @@ public class SkolemstoCtranslator {
     private static CExpr createHarnessCbody(Scratch scratch, SMTLibToCTypeVisitor visitor, int iter) {
         List<CExpr> updates = new ArrayList<>();
         List<CExpr> forbody = new ArrayList<>();
+        int arraysize = scratch.skolems.size();
+        String functionName = "skolem_";
 
         CVarDecl iterexp = new CVarDecl("mainiterator", CNamedType.INT);
         CIdExpr iterid = new CIdExpr(iterexp.id);
         CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(0)));
         CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.LESS, new CIntExpr(BigInteger.valueOf(iter)));
         CUnaryExpr incr = new CUnaryExpr(CUnaryOp.PLUSPLUS, iterid);
-
-        for (VarDecl var : scratch.skolems.get(0).inputs){
+        for (VarDecl var : scratch.skolems.get(0).inputs) {
             NamedType vartype = (NamedType) var.type;
             CExpr rand = createrandcall((CNamedType) visitor.visit(vartype));
             updates.add(new CArrayUpdateExpr(new CIdExpr(truncate(var.id)),
                     new CIntExpr(BigInteger.valueOf(0)), rand));
         }
         forbody.addAll(updates);
-        forbody.add(new CFunctionCallExpr(new CUpdateFunction().name));
+        if (arraysize > 1) {
+            forbody.add(new CFunctionCallExpr(new CUpdateFunction().name));
+        } else {
+            forbody.add(new CFunctionCallExpr(functionName+Integer.toString(0)));
+        }
         CForExpr loop = new CForExpr(iterexp, iterassign, cond, incr, forbody);
         return loop;
     }
@@ -193,7 +216,7 @@ public class SkolemstoCtranslator {
         SMTLibToCTypeVisitor typeVisitor = new SMTLibToCTypeVisitor();
         CVarDecl start = new CVarDecl("start", new CNamedType("clock_t"),
                 new CFunctionCall(new CClockFunction().name));
-        CVarDecl diff = new CVarDecl("diff", new CNamedType("clock_t"));
+        CVarDecl diff = new CVarDecl("clock_diff", new CNamedType("clock_t"));
         CVarDecl sec = new CVarDecl("sec", CNamedType.DOUBLE);
         clockvars.add(start);
         clockvars.add(diff);
@@ -231,7 +254,7 @@ public class SkolemstoCtranslator {
         CAssignment secassign = new CAssignment(secid, secexp);
         body.add(secassign);
 
-        CIdExpr text = new CIdExpr("\"Time taken %f seconds %f milliseconds\"");
+        CIdExpr text = new CIdExpr("\"Time taken %f seconds %f milliseconds\\n\"");
         CBinaryExpr msec = new CBinaryExpr(secid, CBinaryOp.MULTIPLY, thousexp);
         pbody.add(text);
         pbody.add(secid);
@@ -296,12 +319,17 @@ public class SkolemstoCtranslator {
                 return new CBoolExpr(false);
             } else if (id.contains("$")) {
                 String[] trunc = id.split("[$]");
-                String name = trunc[1];
-                String index = trunc[2].replaceAll("~1",Integer.toString(i-1));
+                String name = trunc[1].replaceAll("[~.]","_");
+                String index = trunc[2].replaceAll("~1", Integer.toString(i - 1));
+                if (index.equals("-1))")) {
+                    System.out.println(index);
+                }
                 Integer ind = Integer.valueOf(index);
-                if (Integer.valueOf(index) >= i) {
+                if (ind >= i) {
                     return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(i)));
-                } else {
+                } else if (ind == -1) {
+                    return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(0)));
+                }else {
                     return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(ind)));
                 }
             } else {

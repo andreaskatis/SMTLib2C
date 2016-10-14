@@ -29,10 +29,14 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 
 	@Override
 	public Void visit(CProgram program) {
-		write("#include \""+program.filename+".h\"");
+		String[] path = program.filename.split("[/]");
+		String filename = path[path.length-1];
+		write("#include \""+filename+".h\"");
 		newline();
 		newline();
-		varDecl(program.init);
+		if (program.init != null) {
+			varDecl(program.init);
+		}
 		arrayDecls(program.vars);
 		newline();
 		funs(program.functions);
@@ -42,9 +46,11 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 
 	@Override
 	public Void visit(CHeader header) {
-		write("#ifndef _"+header.filename.toUpperCase());
+		String[] path = header.filename.split("[/]");
+		String filename = path[path.length-1];
+		write("#ifndef _"+filename.toUpperCase());
 		newline();
-		write("#define _"+header.filename.toUpperCase());
+		write("#define _"+filename.toUpperCase());
 		newline();
 		newline();
 		write("#include <stdlib.h>");
@@ -62,7 +68,9 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 
 	@Override
 	public Void visit(CHarness harness) {
-		write("#include \""+harness.filename+".h\"");
+		String[] path = harness.filename.split("[/]");
+		String filename = path[path.length-1];
+		write("#include \""+filename+".h\"");
 		newline();
 		write("#include <stdio.h>");
 		newline();
@@ -75,9 +83,11 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 
 	@Override
 	public Void visit(LustreCHarness harness) {
-		write("#include \""+harness.filename+".h\"");
+		String[] path = harness.filename.split("[/]");
+		String filename = path[path.length-1];
+		write("#include \""+filename+".h\"");
 		newline();
-		write("#include \""+harness.filename+"_alloc.h\"");
+		write("#include \""+filename+"_alloc.h\"");
 		newline();
 		write("#include <stdio.h>");
 		newline();
@@ -355,11 +365,25 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 
 	@Override
 	public Void visit(CBinaryExpr e) {
+//		if (!(e.left instanceof CIdExpr)) {
+//			write("(");
+//		}
 		expr(e.left);
+//		if (!(e.left instanceof CIdExpr)) {
+//			write(")");
+//		}
 		write(" ");
 		write(e.op);
 		write(" ");
+//		if (!(e.right instanceof CIdExpr) && !(e.right instanceof CIntExpr)
+//				&& !(e.right instanceof CBoolExpr) && !(e.right instanceof CRealExpr)) {
+//			write("(");
+//		}
 		expr(e.right);
+//		if (!(e.right instanceof CIdExpr) && !(e.right instanceof CIntExpr)
+//				&& !(e.right instanceof CBoolExpr) && !(e.right instanceof CRealExpr)) {
+//			write("(");
+//		}
 		return null;
 	}
 
@@ -475,8 +499,10 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 			write(e.op);
 		}
 		else {
+			write("(");
 			write(e.op);
 			expr(e.expr);
+			write(")");
 		}
 		return null;
 	}

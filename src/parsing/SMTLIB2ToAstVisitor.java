@@ -18,12 +18,79 @@ import skolem.*;
 public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
 
     public Scratch scratch(ScratchContext ctx) {
-
-        List<Skolem> skolems = skolems(ctx.skolem());
-        return new Scratch(loc(ctx), skolems);
+        List<SkolemContext> skolemctx = ctx.skolem();
+        List<VarDecl> inputs = inputvars(skolemctx);
+        List<VarDecl> outputs = outputvars(skolemctx);
+        List<Skolem> skolems = skolems(skolemctx);
+        return new Scratch(loc(ctx), inputs, outputs, skolems);
     }
 
-    private List<Skolem> skolems(List<SkolemContext> ctxs) {
+    private List<VarDecl> inputvars(List<SkolemContext> ctxs) {
+        List<VarDecl> decls = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        if (ctxs == null) {
+            return decls;
+        }
+        for (SkolemContext ctx : ctxs) {
+            List<DeclareContext> dctxs = ctx.declare();
+            for (DeclareContext dctx : dctxs) {
+                String id = dctx.ID().getText();
+                if (id.endsWith("$0")) {
+                    Type type = type(dctx.type());
+                    boolean contains = false;
+                    for (String name : names) {
+                        if (id.equals(name)) {
+                            contains = true;
+                            break;
+                        }
+                    }
+                    if (contains) {
+                        continue;
+                    } else {
+                        names.add(id);
+                        decls.add(new VarDecl(loc(dctx), rename(id), type));
+                    }
+
+                }
+            }
+        }
+        return decls;
+    }
+
+    private List<VarDecl> outputvars(List<SkolemContext> ctxs) {
+        List<VarDecl> decls = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        if (ctxs == null) {
+            return decls;
+        }
+        for (SkolemContext ctx : ctxs) {
+            List<DeclareContext> dctxs = ctx.declare();
+            for (DeclareContext dctx : dctxs) {
+                String id = dctx.ID().getText();
+                if(!(id.endsWith("$0") || id.equals("%init"))) {
+                    Type type = type(dctx.type());
+                    boolean contains = false;
+                    for (String name : names) {
+                        if (id.equals(name)) {
+                            contains = true;
+                            break;
+                        }
+                    }
+                    if (contains) {
+                        continue;
+                    } else {
+                        names.add(id);
+                        decls.add(new VarDecl(loc(dctx), rename(id), type));
+                    }
+
+                }
+            }
+        }
+        return decls;
+    }
+
+
+        private List<Skolem> skolems(List<SkolemContext> ctxs) {
         List<Skolem> skolems = new ArrayList<>();
         for (SkolemContext ctx : ctxs) {
             skolems.add(skolem(ctx));
@@ -35,46 +102,127 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         List<DeclareContext> dctx = ctx.declare();
         List<VarDecl> inputs = inputs(dctx);
         List<VarDecl> outputs = outputs(dctx);
-        List<Equation> locals = locals(ctx.letexp());
-        List<Expr> body = body(ctx.letexp().body());
-        List<Expr> finalbody = inlinelocals(locals,body);
-        return new Skolem(loc(ctx), inputs, outputs, locals, finalbody);
+        List<Equation> locals = new ArrayList<>();
+        if (ctx.letexp() !=null) {
+            locals.addAll(locals(ctx.letexp()));
+            List<Equation> inlinedlocals = inlinelocals(locals, locals);
+            List<Expr> body = body(ctx.letexp().body());
+            List<Expr> tempbody = inlinelocalstoexprs(body, inlinedlocals);
+            List<Expr> finalbody = convertAssignments(tempbody);
+            return new Skolem(loc(ctx), inputs, outputs, locals, finalbody);
+        } else {
+            List<Expr> body = new ArrayList<>();
+            body.add(expr(ctx.expr()));
+            List<Expr> finalbody = convertAssignments(body);
+            return new Skolem(loc(ctx), inputs, outputs, locals, finalbody);
+        }
     }
 
-    private List<Expr> inlinelocals(List<Equation> locals, List<Expr> body) {
-        List<Expr> inlined = new ArrayList<>();
+    private List<Expr> convertAssignments(List<Expr> tempbody) {
+        List<Expr> converted = new ArrayList<>();
+        for (Expr expr : tempbody) {
+            if (expr instanceof IfThenElseExpr) {
+                IfThenElseExpr itebody = (IfThenElseExpr) expr;
+                IfThenElseExpr iteconv = new IfThenElseExpr(itebody.cond,
+                        convertAssignmentsinExprs(itebody.thenExpr), convertAssignmentsinExprs(itebody.elseExpr));
+                converted.add(iteconv);
+            }
+            else {
+                converted.add(expr);
+            }
+        }
+        return converted;
+    }
 
-        for (Expr b : body) {
-            if (b instanceof IfThenElseExpr) {
-                IfThenElseExpr bd = (IfThenElseExpr) b;
-                inlined.add(new IfThenElseExpr(inlinelocs(locals,bd.cond),
-                        inlinelocals(locals, bd.thenExpr), inlinelocals(locals, bd.elseExpr)));
-            } else if (b instanceof IdExpr) {
-                IdExpr bd = (IdExpr) b;
-                for (Equation loc : locals) {
-                    if(bd.id.toString().equals(loc.lhs.id.toString())) {
-                        List<Expr> temp = new ArrayList<>();
-                        temp.add(loc.expr);
-                        inlined.addAll(inlinelocals(locals,temp));
-                    }
+    private List<Expr> convertAssignmentsinExprs(List<Expr> exprs) {
+        List<Expr> converted = new ArrayList<>();
+        for (Expr expr : exprs) {
+            if (expr instanceof BinaryExpr) {
+                BinaryExpr binexp = (BinaryExpr) expr;
+                if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
+                    converted.add(new AssignExpr(binexp.left, binexp.right));
                 }
+            } else if (expr instanceof IfThenElseExpr) {
+                IfThenElseExpr itexp = (IfThenElseExpr) expr;
+                IfThenElseExpr iteconv = new IfThenElseExpr(itexp.cond,
+                        convertAssignmentsinExprs(itexp.thenExpr), convertAssignmentsinExprs(itexp.elseExpr));
+                converted.add(iteconv);
             } else {
-               inlined.add(b);
+                converted.add(expr);
+            }
+        }
+        return converted;
+    }
+
+    private List<Equation> inlinelocals(List<Equation> locals, List<Equation> lookup) {
+        List<Equation> inlined = new ArrayList<>();
+        for (Equation loc : locals) {
+            Expr locexpr = loc.expr;
+            if (locexpr instanceof IfThenElseExpr) {
+                IfThenElseExpr itexp = (IfThenElseExpr) locexpr;
+                IfThenElseExpr inlinedexp = new IfThenElseExpr(inlinelocalstoexp(itexp.cond, lookup).get(0),
+                        inlinelocalstoexprs(itexp.thenExpr, lookup), inlinelocalstoexprs(itexp.elseExpr, lookup));
+                inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+            } else if (locexpr instanceof BinaryExpr) {
+                BinaryExpr binexp = (BinaryExpr) locexpr;
+                BinaryExpr inlinedexp = new BinaryExpr(inlinelocalstoexp(binexp.left, lookup).get(0),
+                        binexp.op, inlinelocalstoexp(binexp.right, lookup).get(0));
+                inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+            } else if (locexpr instanceof UnaryExpr) {
+                UnaryExpr unexp = (UnaryExpr) locexpr;
+                UnaryExpr inlinedexp = new UnaryExpr(unexp.op, inlinelocalstoexp(unexp.expr, lookup).get(0));
+                inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+            } else if (locexpr instanceof CastExpr) {
+                CastExpr castexp = (CastExpr) locexpr;
+                CastExpr inlinedexp = new CastExpr(castexp.type, inlinelocalstoexp(castexp.expr, lookup).get(0));
+                inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+            } else {
+                inlined.add(loc);
             }
         }
         return inlined;
     }
 
-    private Expr inlinelocs(List<Equation> locals, Expr cond) {
-        if (cond instanceof IdExpr) {
-            IdExpr cd = (IdExpr) cond;
-            for (Equation loc : locals) {
-                if(cd.id.toString().equals(loc.lhs.id.toString())) {
-                    return(loc.expr);
-                }
-            }
+    private List<Expr> inlinelocalstoexprs(List<Expr> exprs, List<Equation> lookup) {
+        List<Expr> inlined = new ArrayList<>();
+        for (Expr exp : exprs) {
+            inlined.addAll(inlinelocalstoexp(exp, lookup));
         }
-        return cond;
+        return inlined;
+    }
+
+    private List<Expr> inlinelocalstoexp(Expr expr, List<Equation> lookup) {
+        List<Expr> exprs = new ArrayList<>();
+        if (expr instanceof IdExpr) {
+            IdExpr idexp = (IdExpr) expr;
+            if (idexp.id.startsWith("a!")) {
+                for (Equation loc : lookup) {
+                    if (idexp.id.toString().equals(loc.lhs.id.toString())) {
+                        exprs.addAll((inlinelocalstoexp(loc.expr, lookup)));
+                    }
+                }
+            } else {
+                exprs.add(expr);
+            }
+        } else if (expr instanceof BinaryExpr) {
+            BinaryExpr binexp = (BinaryExpr) expr;
+            exprs.add(new BinaryExpr(inlinelocalstoexp(binexp.left, lookup).get(0), binexp.op, inlinelocalstoexp(binexp.right, lookup).get(0)));
+        } else if (expr instanceof UnaryExpr) {
+            UnaryExpr unexp = (UnaryExpr) expr;
+            exprs.add(new UnaryExpr(unexp.op, inlinelocalstoexp(unexp.expr, lookup).get(0)));
+
+        } else if (expr instanceof CastExpr) {
+            CastExpr castexp = (CastExpr) expr;
+            exprs.add(new CastExpr(castexp.type, inlinelocalstoexp(castexp.expr, lookup).get(0)));
+        } else if (expr instanceof IfThenElseExpr) {
+            IfThenElseExpr itexp = (IfThenElseExpr) expr;
+            exprs.add(new IfThenElseExpr(inlinelocalstoexp(itexp.cond, lookup).get(0),
+                    inlinelocalstoexprs(itexp.thenExpr, lookup),
+                    inlinelocalstoexprs(itexp.elseExpr, lookup)));
+        } else {
+            exprs.add(expr);
+        }
+        return exprs;
     }
 
 
@@ -120,7 +268,6 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             ExprContext locctx = loc.expr();
             if (isAssignmentBlock(locctx)) {
                 for (Expr e : splitassignments(locctx)) {
-                    //Expr renamedexpr = renamevars(e);
                     locs.add(new Equation(loc(loc), new IdExpr(loc(loc), loc.ID().getText()), e));
                 }
             } else {
@@ -207,6 +354,11 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         return NamedType.BOOL;
     }
 
+    @Override
+    public Type visitRealType(RealTypeContext ctx) {
+        return NamedType.REAL;
+    }
+
     public Expr expr(ExprContext ctx) {
         return (Expr) ctx.accept(this);
     }
@@ -257,13 +409,26 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         return new UnaryExpr(loc(ctx), UnaryOp.NOT, expr(ctx.expr()));
     }
 
+    @Override
+    public Expr visitNegateExpr(NegateExprContext ctx) {return new UnaryExpr(loc(ctx),UnaryOp.NEGATIVE, expr(ctx.expr()));}
 
     @Override
     public Expr visitBinaryExpr(BinaryExprContext ctx) {
         String op = ctx.op.getText();
         Expr left = expr(ctx.expr(0));
-        Expr right = expr(ctx.expr(1));
-        return new BinaryExpr(loc(ctx.op), left, BinaryOp.fromString(op), right);
+        List<Expr> right = new ArrayList<>();
+        for (ExprContext ectx : ctx.expr().subList(1,ctx.expr().size())) {
+            right.add(expr(ectx));
+        }
+        return new BinaryExpr(loc(ctx.op), left, BinaryOp.fromString(op), rewriteBExpr(BinaryOp.fromString(op), right));
+    }
+
+    private Expr rewriteBExpr(BinaryOp binaryOp, List<Expr> right) {
+        if (right.size() > 1) {
+            return new BinaryExpr(right.get(0), binaryOp, rewriteBExpr(binaryOp, right.subList(1, right.size())));
+        } else {
+            return right.get(0);
+        }
     }
 
     @Override

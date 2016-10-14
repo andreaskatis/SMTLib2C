@@ -16,6 +16,13 @@ public class CProgram extends CAst {
 		this.functions = functions;
 	}
 
+	public CProgram(String filename, List<CArrayDecl> vars, List<CFunction> functions) {
+		this.init = null;
+		this.filename = filename;
+		this.vars = vars;
+		this.functions = functions;
+	}
+
 	@Override
 	public <T, S extends T> T accept(CAstVisitor<T, S> visitor) {
 		return visitor.visit(this);

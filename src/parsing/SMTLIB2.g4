@@ -2,8 +2,7 @@ grammar SMTLIB2;
 
 scratch: (skolem | check)* EOF;
 
-
-skolem: declare+ '(' 'assert' '(' letexp ')' ')';
+skolem: declare+ '(' 'assert' '(' (letexp | expr) ')' ')';
 
 check: CS;
 
@@ -17,6 +16,7 @@ local: '(' ID expr ')';
 
 type: 'Int'                                              # intType
     | 'Bool'                                             # boolType
+    | 'Real'                                             # realType
     ;
 
 expr: ID                                                       # idExpr
@@ -25,11 +25,12 @@ expr: ID                                                       # idExpr
     | BOOL                                                     # boolExpr
     | op= ('to_real' | 'to_int') expr                          # castExpr
     | 'not' expr                                               # notExpr
-    | op=('*' | 'div' | 'mod') expr expr                       # binaryExpr
-    | op=('+' | '-') expr expr                                 # binaryExpr
+    | '-' expr                                                 # negateExpr
+    | op=('*' | '/' | 'mod') expr expr                         # binaryExpr
+    | op=('+' | '-') expr expr+                                # binaryExpr
     | op=('<' | '<=' | '>' | '>=' | '=' ) expr expr            # binaryExpr
     | op='and' expr expr+                                      # binaryExpr
-    | op=('or' | 'xor') expr expr                              # binaryExpr
+    | op=('or' | 'xor') expr expr+                             # binaryExpr
     | <assoc=right> op='=>' expr expr                          # binaryExpr
     | <assoc=right> op='->' expr expr                          # binaryExpr
     | '(' expr ')'                                             # parenExpr

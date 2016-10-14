@@ -124,6 +124,18 @@ public class SMTLIB2BaseListener implements SMTLIB2Listener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterRealType(SMTLIB2Parser.RealTypeContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitRealType(SMTLIB2Parser.RealTypeContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterIdExpr(SMTLIB2Parser.IdExprContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -191,6 +203,18 @@ public class SMTLIB2BaseListener implements SMTLIB2Listener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitNotExpr(SMTLIB2Parser.NotExprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterNegateExpr(SMTLIB2Parser.NegateExprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitNegateExpr(SMTLIB2Parser.NegateExprContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

@@ -67,6 +67,13 @@ public interface SMTLIB2Visitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitBoolType(SMTLIB2Parser.BoolTypeContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code realType}
+	 * labeled alternative in {@link SMTLIB2Parser#type}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitRealType(SMTLIB2Parser.RealTypeContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code idExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.
 	 * @param ctx the parse tree
@@ -108,6 +115,13 @@ public interface SMTLIB2Visitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitNotExpr(SMTLIB2Parser.NotExprContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code negateExpr}
+	 * labeled alternative in {@link SMTLIB2Parser#expr}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitNegateExpr(SMTLIB2Parser.NegateExprContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code binaryExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.

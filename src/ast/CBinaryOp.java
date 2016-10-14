@@ -7,7 +7,7 @@ public enum CBinaryOp {
 	DIVIDE ("/"),
 	MODULUS ("%"),
 	EQUAL ("=="),
-	NOTEQUAL ("<>"),
+	NOTEQUAL ("!="),
 	GREATER (">"),
 	LESS ("<"),
 	GREATEREQUAL (">="),

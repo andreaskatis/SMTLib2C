@@ -4,16 +4,21 @@ import visitors.AstVisitor;
 import java.util.List;
 
 public class Scratch extends Ast {
+    public final List<VarDecl> inputs;
+    public final List<VarDecl> outputs;
+
     public final List<Skolem> skolems;
 
-    public Scratch(Location location,
+    public Scratch(Location location, List<VarDecl> inputs, List<VarDecl> outputs,
                    List<Skolem> skolems) {
         super(location);
+        this.inputs = inputs;
+        this.outputs = outputs;
         this.skolems = skolems;
     }
 
-    public Scratch(List<Skolem> skolems) {
-        this(Location.NULL, skolems);
+    public Scratch(List<VarDecl> inputs, List<VarDecl> outputs, List<Skolem> skolems) {
+        this(Location.NULL, inputs, outputs, skolems);
     }
 
     @Override
