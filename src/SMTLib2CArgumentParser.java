@@ -4,6 +4,7 @@ import org.apache.commons.cli.Options;
 public class SMTLib2CArgumentParser extends ArgumentParser {
     private static final String CHARNESS = "c_harness";
     private static final String LUSTREC = "lustrec_harness";
+    private static final String NODENAME = "lustrecnode";
     private static final String ITERATION = "iter";
 
 
@@ -24,6 +25,7 @@ public class SMTLib2CArgumentParser extends ArgumentParser {
         options.addOption(CHARNESS, false, "generate harness code for implementation");
         options.addOption(LUSTREC, false, "generate harness code compatible with Pierre-Loic Garoche's" +
                 " LustreC compiler (https://github.com/coco-team/lustrec)");
+        options.addOption(NODENAME, true, "name of main node in original lustre file (have to use with lustrec_harness)");
         options.addOption(ITERATION, true, "determine number of iterations for harness code (have to use with either" +
                 "c_harness or lustrec_harness");
         return options;
@@ -46,6 +48,7 @@ public class SMTLib2CArgumentParser extends ArgumentParser {
 
         ensureInclusive(line, CHARNESS, ITERATION);
         ensureInclusive(line, LUSTREC, ITERATION);
+        ensureInclusive(line, LUSTREC, NODENAME);
 
         if (line.hasOption(CHARNESS)) {
             settings.harnessC = true;
@@ -57,6 +60,10 @@ public class SMTLib2CArgumentParser extends ArgumentParser {
 
         if (line.hasOption(ITERATION)) {
             settings.iteration = parseNonnegativeInt(line.getOptionValue(ITERATION));
+        }
+
+        if (line.hasOption(NODENAME)) {
+            settings.lustrecnode = line.getOptionValue(NODENAME);
         }
     }
 }

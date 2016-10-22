@@ -74,7 +74,7 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
 
         @Override
         public CExpr visit(RealExpr e) {
-            return new CRealExpr(e.value.doubleValue());
+            return new CDoubleExpr(e.value.doubleValue());
         }
 
 

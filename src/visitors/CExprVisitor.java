@@ -12,7 +12,7 @@ public interface CExprVisitor<T> {
 	T visit(CCastExpr e);
 	T visit(CIdExpr e);
 	T visit(CIntExpr e);
-	T visit(CRealExpr e);
+	T visit(CDoubleExpr e);
 	T visit(CUnaryExpr e);
 	T visit(CIfThenElseExpr e);
 	T visit(CForExpr e);

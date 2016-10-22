@@ -2,10 +2,10 @@ package ast;
 
 import visitors.*;
 
-public class CRealExpr extends CExpr {
+public class CDoubleExpr extends CExpr {
 	public final double value;
 
-	public CRealExpr(double value) {
+	public CDoubleExpr(double value) {
 		this.value = value;
 	}
 

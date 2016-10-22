@@ -11,6 +11,8 @@ public class SkolemstoCtranslator {
     private static CVarDecl init = new CVarDecl("init",new CNamedType("static "+CNamedType.INT), new CIntExpr(BigInteger.valueOf(0)));
 
     public static CProgram translate(Scratch scratch, String filename){
+        String[] path = filename.split("[/]");
+        String truename = path[path.length-1];
 
         List<CArrayDecl> vars = new ArrayList<>();
         List<CArrayDecl> outputs = new ArrayList<>();
@@ -40,20 +42,6 @@ public class SkolemstoCtranslator {
             outputs.add(variable);
             vars.add(variable);
         }
-//        for (VarDecl var : scratch.skolems.get(0).inputs){
-//            NamedType vartype = (NamedType) var.type;
-//            CArrayDecl variable =
-//                    new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
-//            vars.add(variable);
-//        }
-//
-//        for (VarDecl var : scratch.skolems.get(0).outputs){
-//            NamedType vartype = (NamedType) var.type;
-//            CArrayDecl variable =
-//                    new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
-//            outputs.add(variable);
-//            vars.add(variable);
-//        }
 
         int i = 0;
 
@@ -74,15 +62,17 @@ public class SkolemstoCtranslator {
             CMoveHistory mh = addMoveHistory(arraysize, outputs);
             functions.add(mh);
             functions.add(addUpdateFunction(init, funcalls, mh));
-            return new CProgram(init, filename, vars, functions);
+            return new CProgram(init, truename, vars, functions);
 
         } else {
-            return new CProgram(filename, vars, functions);
+            return new CProgram(truename, vars, functions);
         }
     }
 
 
     public static CHeader addHeader(Scratch scratch, String filename) {
+        String[] path = filename.split("[/]");
+        String truename = path[path.length-1];
         List<CArrayDecl> inputs = new ArrayList<>();
         List<CArrayDecl> outputs = new ArrayList<>();
         List<CFunction> functions = new ArrayList<>();
@@ -94,14 +84,15 @@ public class SkolemstoCtranslator {
 
         String functionName = "skolem_";
 
-        for (VarDecl var : scratch.skolems.get(0).inputs){
+
+        for (VarDecl var : scratch.inputs) {
             NamedType vartype = (NamedType) var.type;
             CArrayDecl arr = new CArrayDecl(
                     new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
             inputs.add(arr);
         }
 
-        for (VarDecl var : scratch.skolems.get(0).outputs){
+        for (VarDecl var : scratch.outputs) {
             NamedType vartype = (NamedType) var.type;
             CArrayDecl variable = new CArrayDecl(
                     new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
@@ -114,13 +105,15 @@ public class SkolemstoCtranslator {
         }
         functions.add(new CMoveHistory());
         functions.add(new CUpdateFunction());
-        CHeader header = new CHeader(filename, inputs, outputs, functions);
+        CHeader header = new CHeader(truename, inputs, outputs, functions);
         return header;
     }
 
     public static CHarness addHarnessC(Scratch scratch, String filename, int iter) {
+        String[] path = filename.split("[/]");
+        String truename = path[path.length-1];
         List<CExpr> body = new ArrayList<>();
-        List<CVarDecl> clockvars = new ArrayList<>();
+        List<CVarDecl> vars = new ArrayList<>();
         List<CExpr> pbody = new ArrayList<>();
 
 
@@ -129,10 +122,9 @@ public class SkolemstoCtranslator {
                 new CFunctionCall(new CClockFunction().name));
         CVarDecl diff = new CVarDecl("clock_diff", new CNamedType("clock_t"));
         CVarDecl sec = new CVarDecl("sec", CNamedType.DOUBLE);
-        clockvars.add(start);
-        clockvars.add(diff);
-        clockvars.add(sec);
-
+        vars.add(start);
+        vars.add(diff);
+        vars.add(sec);
 
         body.add(createHarnessCbody(scratch, typeVisitor, iter));
 
@@ -145,23 +137,23 @@ public class SkolemstoCtranslator {
         CIntExpr thousexp = new CIntExpr(BigInteger.valueOf(1000));
 
         CIdExpr secid = new CIdExpr(sec.id);
-        CBinaryExpr exp = new CBinaryExpr(diffid, CBinaryOp.DIVIDE, new CIdExpr("CLOCKS_PER_SEC"));
-        CCastExpr secexp = new CCastExpr(CNamedType.DOUBLE, exp);
-        CAssignment secassign = new CAssignment(secid, secexp);
+        CCastExpr secexp = new CCastExpr(CNamedType.DOUBLE, diffid);
+        CBinaryExpr exp = new CBinaryExpr(secexp, CBinaryOp.DIVIDE, new CIdExpr("CLOCKS_PER_SEC"));
+        CAssignment secassign = new CAssignment(secid, exp);
         body.add(secassign);
 
-        CIdExpr text = new CIdExpr("\"Time taken %f seconds %f milliseconds\\n\"");
+        CIdExpr text = new CIdExpr("\""+ truename+" %f\\n\"");
         CBinaryExpr msec = new CBinaryExpr(secid, CBinaryOp.MULTIPLY, thousexp);
         pbody.add(text);
-        pbody.add(secid);
+//        pbody.add(secid);
         pbody.add(msec);
 
         CPrintFunction print = new CPrintFunction(pbody);
         CFunctionCallExpr printcall = new CFunctionCallExpr(print.name, print.args);
         body.add(printcall);
 
-        CHarnessMain main = new CHarnessMain(clockvars, body);
-        CHarness harness = new CHarness(main, filename);
+        CHarnessMain main = new CHarnessMain(vars, body);
+        CHarness harness = new CHarness(main, truename);
         return harness;
     }
 
@@ -170,13 +162,12 @@ public class SkolemstoCtranslator {
         List<CExpr> forbody = new ArrayList<>();
         int arraysize = scratch.skolems.size();
         String functionName = "skolem_";
-
         CVarDecl iterexp = new CVarDecl("mainiterator", CNamedType.INT);
         CIdExpr iterid = new CIdExpr(iterexp.id);
         CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(0)));
         CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.LESS, new CIntExpr(BigInteger.valueOf(iter)));
         CUnaryExpr incr = new CUnaryExpr(CUnaryOp.PLUSPLUS, iterid);
-        for (VarDecl var : scratch.skolems.get(0).inputs) {
+        for (VarDecl var : scratch.inputs) {
             NamedType vartype = (NamedType) var.type;
             CExpr rand = createrandcall((CNamedType) visitor.visit(vartype));
             updates.add(new CArrayUpdateExpr(new CIdExpr(truncate(var.id)),
@@ -205,10 +196,12 @@ public class SkolemstoCtranslator {
         }
     }
 
-    public static LustreCHarness addHarnessLustreC(Scratch scratch, String filename, int iter) {
+    public static LustreCHarness addHarnessLustreC(Scratch scratch, String filename, String nodename, int iter) {
+        String[] path = filename.split("[/]");
+        String truename = path[path.length-1];
         List<CVarDecl> inputs = new ArrayList<>();
         List<CExpr> body = new ArrayList<>();
-        List<CVarDecl> clockvars = new ArrayList<>();
+        List<CVarDecl> vars = new ArrayList<>();
         List<CExpr> pbody = new ArrayList<>();
         List<CExpr> resetargs = new ArrayList<>();
 
@@ -218,27 +211,33 @@ public class SkolemstoCtranslator {
                 new CFunctionCall(new CClockFunction().name));
         CVarDecl diff = new CVarDecl("clock_diff", new CNamedType("clock_t"));
         CVarDecl sec = new CVarDecl("sec", CNamedType.DOUBLE);
-        clockvars.add(start);
-        clockvars.add(diff);
-        clockvars.add(sec);
+        vars.add(start);
+        vars.add(diff);
+        vars.add(sec);
 
-        for (VarDecl var : scratch.skolems.get(0).inputs){
+        CVarDecl ctx = new CVarDecl("ctx", new CNamedType(truename+"_top_bbb_ctx_type*"),
+                new CIdExpr(truename+"_top_bbb_ctx_new_ctx(NULL)"));
+        vars.add(ctx);
+        
+//        for (VarDecl var : scratch.skolems.get(0).inputs){
+        for (VarDecl var : scratch.inputs){
             NamedType vartype = (NamedType) var.type;
             CIdExpr truncated = new CIdExpr(truncate(var.id));
             inputs.add(new CVarDecl(truncated.id, typeVisitor.visit(vartype)));
         }
 
-        CIdExpr ok = new CIdExpr("OK");
-        inputs.add(new CVarDecl(ok.id, CNamedType.BOOL, new CIntExpr(BigInteger.valueOf(1))));
+        //We do not add the return variables to the step function
+        //automatically. This has to be done manually for now.
 
-        CIdExpr structid = new CIdExpr("mem");
-        CIdExpr structptr = new CIdExpr("&mem");
-        resetargs.add(structptr);
-        CStructDecl memstruct = new CStructDecl(structid.id , new CNamedType("top_mem"));
-        CFunctionCallExpr resetfun = new CFunctionCallExpr("top_reset", resetargs);
-        body.add(resetfun);
 
-        body.add(createHarnessLustreCbody(scratch, typeVisitor, iter, resetargs));
+//        CIdExpr structid = new CIdExpr("mem");
+//        CIdExpr structptr = new CIdExpr("&mem");
+//        resetargs.add(structptr);
+//        CStructDecl memstruct = new CStructDecl(structid.id , new CNamedType(nodename+"_mem"));
+//        CFunctionCallExpr resetfun = new CFunctionCallExpr(nodename+"_reset", resetargs);
+//        body.add(resetfun);
+
+        body.add(createHarnessLustreCbody(scratch, typeVisitor, truename, iter, resetargs));
 
         CBinaryExpr diffexp = new CBinaryExpr(new CFunctionCall(new CClockFunction().name),
                 CBinaryOp.MINUS, new CIdExpr(start.id));
@@ -249,27 +248,27 @@ public class SkolemstoCtranslator {
         CIntExpr thousexp = new CIntExpr(BigInteger.valueOf(1000));
 
         CIdExpr secid = new CIdExpr(sec.id);
-        CBinaryExpr exp = new CBinaryExpr(diffid, CBinaryOp.DIVIDE, new CIdExpr("CLOCKS_PER_SEC"));
-        CCastExpr secexp = new CCastExpr(CNamedType.DOUBLE, exp);
-        CAssignment secassign = new CAssignment(secid, secexp);
+        CCastExpr secexp = new CCastExpr(CNamedType.DOUBLE, diffid);
+        CBinaryExpr exp = new CBinaryExpr(secexp, CBinaryOp.DIVIDE, new CIdExpr("CLOCKS_PER_SEC"));
+        CAssignment secassign = new CAssignment(secid, exp);
         body.add(secassign);
 
-        CIdExpr text = new CIdExpr("\"Time taken %f seconds %f milliseconds\\n\"");
+        CIdExpr text = new CIdExpr("\""+ truename+" %f\\n\"");
         CBinaryExpr msec = new CBinaryExpr(secid, CBinaryOp.MULTIPLY, thousexp);
         pbody.add(text);
-        pbody.add(secid);
+//        pbody.add(secid);
         pbody.add(msec);
 
         CPrintFunction print = new CPrintFunction(pbody);
         CFunctionCallExpr printcall = new CFunctionCallExpr(print.name, print.args);
         body.add(printcall);
-
-        LustreCHarnessMain main = new LustreCHarnessMain(clockvars, memstruct, body);
-        LustreCHarness harness = new LustreCHarness(inputs, main, filename);
+        LustreCHarnessMain main = new LustreCHarnessMain(vars, body);
+//        LustreCHarnessMain main = new LustreCHarnessMain(vars, memstruct, body);
+        LustreCHarness harness = new LustreCHarness(inputs, main, truename);
         return harness;
     }
 
-    private static CExpr createHarnessLustreCbody(Scratch scratch, SMTLibToCTypeVisitor visitor, int iter, List<CExpr> args) {
+    private static CExpr createHarnessLustreCbody(Scratch scratch, SMTLibToCTypeVisitor visitor, String truename, int iter, List<CExpr> args) {
         List<CExpr> updates = new ArrayList<>();
         List<CExpr> forbody = new ArrayList<>();
         List<CExpr> stepargs = new ArrayList<>();
@@ -280,35 +279,26 @@ public class SkolemstoCtranslator {
         CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.LESS, new CIntExpr(BigInteger.valueOf(iter)));
         CUnaryExpr incr = new CUnaryExpr(CUnaryOp.PLUSPLUS, iterid);
 
-        for (VarDecl var : scratch.skolems.get(0).inputs){
+        for (VarDecl var : scratch.inputs){
             NamedType vartype = (NamedType) var.type;
             CExpr rand = createrandcall((CNamedType) visitor.visit(vartype));
-            CIdExpr truncated = new CIdExpr(truncate(var.id));
+            CIdExpr truncated = new CIdExpr("ctx->"+truncate(var.id));
             updates.add(new CAssignment(truncated, rand));
-            stepargs.add(truncated);
+//            stepargs.add(truncated);
         }
         forbody.addAll(updates);
 
-        stepargs.add(new CIdExpr("&OK"));
-        stepargs.addAll(args);
-        forbody.add(new CFunctionCallExpr("top_step", stepargs));
+//        stepargs.addAll(args);
+        stepargs.add(new CIdExpr("ctx"));
+        forbody.add(new CFunctionCallExpr(truename+"_top_bbb_step", stepargs));
         CForExpr loop = new CForExpr(iterexp, iterassign, cond, incr, forbody);
         return loop;
     }
 
-    private static CExpr index(String id) {
-        String index = id.split("[$]")[1];
-        return new CIntExpr(new BigInteger(index));
-    }
 
     private static String truncate(String id) {
         String truncated = id.split("[$]")[0];
         return truncated;
-    }
-
-    private static String normalize(String id) {
-        String normalized = id.split("[$]")[0];
-        return normalized+"_input";
     }
 
     private static CExpr rename(CExpr exp, int i) {

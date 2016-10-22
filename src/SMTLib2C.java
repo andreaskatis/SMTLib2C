@@ -28,8 +28,8 @@ public class SMTLib2C {
             }
 
             if (settings.harnessLustreC) {
-                LustreCHarness harnessLustreC = SkolemstoCtranslator.addHarnessLustreC(scratch, truename, settings.iteration);
-                PrintWriter writerHarnessLustreC = new PrintWriter(new FileOutputStream(truename+"_harness_lustrec.c"));
+                LustreCHarness harnessLustreC = SkolemstoCtranslator.addHarnessLustreC(scratch, truename, settings.lustrecnode, settings.iteration);
+                PrintWriter writerHarnessLustreC = new PrintWriter(new FileOutputStream(truename+"_opt_harness_lus2lic.c"));
                 writerHarnessLustreC.print(harnessLustreC.toString());
                 writerHarnessLustreC.close();
             }

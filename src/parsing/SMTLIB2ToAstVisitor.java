@@ -28,6 +28,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     private List<VarDecl> inputvars(List<SkolemContext> ctxs) {
         List<VarDecl> decls = new ArrayList<>();
         List<String> names = new ArrayList<>();
+        int skolem_index = 0;
         if (ctxs == null) {
             return decls;
         }
@@ -35,11 +36,11 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             List<DeclareContext> dctxs = ctx.declare();
             for (DeclareContext dctx : dctxs) {
                 String id = dctx.ID().getText();
-                if (id.endsWith("$0")) {
+                if (id.endsWith("$"+Integer.toString(skolem_index))) {
                     Type type = type(dctx.type());
                     boolean contains = false;
                     for (String name : names) {
-                        if (id.equals(name)) {
+                        if (id.substring(0,id.length()-2).equals(name.substring(0,name.length()-2))) {
                             contains = true;
                             break;
                         }
@@ -53,6 +54,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
 
                 }
             }
+            skolem_index++;
         }
         return decls;
     }
@@ -60,6 +62,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     private List<VarDecl> outputvars(List<SkolemContext> ctxs) {
         List<VarDecl> decls = new ArrayList<>();
         List<String> names = new ArrayList<>();
+        int skolem_index = 0;
         if (ctxs == null) {
             return decls;
         }
@@ -67,11 +70,14 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             List<DeclareContext> dctxs = ctx.declare();
             for (DeclareContext dctx : dctxs) {
                 String id = dctx.ID().getText();
-                if(!(id.endsWith("$0") || id.equals("%init"))) {
+                if((id.endsWith("$"+Integer.toString(skolem_index+2)) ||
+                        id.endsWith("$~1"))) {
                     Type type = type(dctx.type());
+                    String[] trunc = id.split("[$]");
                     boolean contains = false;
                     for (String name : names) {
-                        if (id.equals(name)) {
+                        String[] truncname = name.split("[$]");
+                        if (trunc[1].equals(truncname[1])) {
                             contains = true;
                             break;
                         }
@@ -100,8 +106,8 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
 
     public Skolem skolem(SkolemContext ctx) {
         List<DeclareContext> dctx = ctx.declare();
-        List<VarDecl> inputs = inputs(dctx);
-        List<VarDecl> outputs = outputs(dctx);
+//        List<VarDecl> inputs = inputs(dctx);
+//        List<VarDecl> outputs = outputs(dctx);
         List<Equation> locals = new ArrayList<>();
         if (ctx.letexp() !=null) {
             locals.addAll(locals(ctx.letexp()));
@@ -109,12 +115,14 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             List<Expr> body = body(ctx.letexp().body());
             List<Expr> tempbody = inlinelocalstoexprs(body, inlinedlocals);
             List<Expr> finalbody = convertAssignments(tempbody);
-            return new Skolem(loc(ctx), inputs, outputs, locals, finalbody);
+            return new Skolem(loc(ctx), locals, finalbody);
+//            return new Skolem(loc(ctx), inputs, outputs, locals, finalbody);
         } else {
             List<Expr> body = new ArrayList<>();
             body.add(expr(ctx.expr()));
             List<Expr> finalbody = convertAssignments(body);
-            return new Skolem(loc(ctx), inputs, outputs, locals, finalbody);
+            return new Skolem(loc(ctx), locals, finalbody);
+//            return new Skolem(loc(ctx), inputs, outputs, locals, finalbody);
         }
     }
 
@@ -226,53 +234,24 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     }
 
 
-    private List<VarDecl> inputs(List<DeclareContext> listCtx) {
-        List<VarDecl> decls = new ArrayList<>();
-        if (listCtx == null) {
-            return decls;
-        }
 
-        for (DeclareContext dCtx : listCtx) {
-            String id = dCtx.ID().getText();
-            if(id.endsWith("$0")) {
-                Type type = type(dCtx.type());
-                decls.add(new VarDecl(loc(dCtx), rename(id), type));
-            }
-        }
-        return decls;
-    }
-
-    private List<VarDecl> outputs(List<DeclareContext> listCtx) {
-        List<VarDecl> decls = new ArrayList<>();
-        if (listCtx == null) {
-            return decls;
-        }
-
-        for (DeclareContext dCtx : listCtx) {
-            String id = dCtx.ID().getText();
-            if(!(id.endsWith("$0") || id.equals("%init"))) {
-                Type type = type(dCtx.type());
-                decls.add(new VarDecl(loc(dCtx), rename(id), type));
-            }
-        }
-        return decls;
-    }
 
     private List<Equation> locals(LetexpContext letCtx) {
         List<Equation> locs = new ArrayList<>();
         if (letCtx == null) {
             return locs;
         }
-
         for (LocalContext loc : letCtx.local()) {
             ExprContext locctx = loc.expr();
-            if (isAssignmentBlock(locctx)) {
-                for (Expr e : splitassignments(locctx)) {
-                    locs.add(new Equation(loc(loc), new IdExpr(loc(loc), loc.ID().getText()), e));
-                }
-            } else {
-                locs.add(new Equation(loc(loc), new IdExpr(loc(loc), loc.ID().getText()), expr(loc.expr())));
-            }
+//            if (isAssignmentBlock(loc)) {
+//                ExprContext locctx = loc.expr();
+//                for (Expr e : splitassignments(locctx)) {
+//                    locs.add(new Equation(loc(loc), new IdExpr(loc(loc), loc.ID().getText()), e));
+//                }
+//            } else {
+//                locs.add(new Equation(loc(loc), new IdExpr(loc(loc), loc.ID().getText()), expr(loc.expr())));
+//            }
+            locs.add(new Equation(loc(loc), new IdExpr(loc(loc),loc.ID().getText()), expr(locctx)));
         }
         if (letCtx.body().letexp() !=null) {
             locs.addAll(locals(letCtx.body().letexp()));
@@ -295,9 +274,10 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         return assignments;
     }
 
-    private boolean isAssignmentBlock(ExprContext locctx) {
-        if (locctx instanceof ParenExprContext) {
-            ParenExprContext pctx = (ParenExprContext) locctx;
+    private boolean isAssignmentBlock(LocalContext locctx) {
+        ExprContext elocctx = locctx.expr();
+        if (elocctx instanceof ParenExprContext) {
+            ParenExprContext pctx = (ParenExprContext) elocctx;
             if (pctx.expr() instanceof BinaryExprContext) {
                 BinaryExprContext bpctx = (BinaryExprContext) pctx.expr();
                 if (bpctx.op.getText().equals("and")) {

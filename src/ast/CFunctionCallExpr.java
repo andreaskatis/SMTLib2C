@@ -4,6 +4,7 @@ import visitors.CExprVisitor;
 
 import java.util.List;
 
+//class to handle expressions that only contain a function call
 public class CFunctionCallExpr extends CExpr {
 	public final String name;
     public final List<CExpr> args;
