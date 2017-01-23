@@ -520,7 +520,7 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 
 	@Override
 	public Void visit(CExitExpr e) {
-		write("exit(0);");
+		write("return;");
 		return null;
 	}
 

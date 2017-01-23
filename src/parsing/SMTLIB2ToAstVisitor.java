@@ -131,8 +131,10 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         for (Expr expr : tempbody) {
             if (expr instanceof IfThenElseExpr) {
                 IfThenElseExpr itebody = (IfThenElseExpr) expr;
+                List<Expr> thenexp = itebody.thenExpr;
+                List<Expr> elsexp = itebody.elseExpr;
                 IfThenElseExpr iteconv = new IfThenElseExpr(itebody.cond,
-                        convertAssignmentsinExprs(itebody.thenExpr), convertAssignmentsinExprs(itebody.elseExpr));
+                        convertAssignmentsinExprs(thenexp), convertAssignmentsinExprs(elsexp));
                 converted.add(iteconv);
             }
             else {
@@ -149,6 +151,9 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 BinaryExpr binexp = (BinaryExpr) expr;
                 if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
                     converted.add(new AssignExpr(binexp.left, binexp.right));
+                } else {
+                    converted.addAll(convertAssignmentinExpr(binexp.left));
+                    converted.addAll(convertAssignmentinExpr(binexp.right));
                 }
             } else if (expr instanceof IfThenElseExpr) {
                 IfThenElseExpr itexp = (IfThenElseExpr) expr;
@@ -159,6 +164,20 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 converted.add(expr);
             }
         }
+        return converted;
+    }
+
+    private List<Expr> convertAssignmentinExpr(Expr expr) {
+        List<Expr> converted = new ArrayList<>();
+        if (expr instanceof BinaryExpr) {
+            BinaryExpr binexp = (BinaryExpr) expr;
+            if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
+                converted.add(new AssignExpr(binexp.left, binexp.right));
+                } else {
+                    converted.addAll(convertAssignmentinExpr(binexp.left));
+                    converted.addAll(convertAssignmentinExpr(binexp.right));
+                }
+            }
         return converted;
     }
 
