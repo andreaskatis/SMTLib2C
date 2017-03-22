@@ -78,7 +78,6 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 	public Void visit(LustreCHarness harness) {
 		write("#include \""+harness.filename+"_opt_top.h\"");
 		newline();
-//		write("#include \""+harness.filename+"_alloc.h\"");
 		newline();
 		write("#include <stdio.h>");
 		newline();
@@ -240,7 +239,6 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		write(" {");
 		newline();
 		varDecls(e.vars);
-//		structDecl(e.struct);
 		for (CExpr b : e.body) {
 			b.accept(this);
 			newline();
@@ -460,6 +458,26 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		return null;
 	}
 
+	@Override
+	public Void visit(CTernaryExpr e) {
+		write("(");
+		expr(e.cond);
+		write(")");
+		write(" ? ");
+		write("(");
+		for (CExpr thenln : e.thenExpr) {
+			expr(thenln);
+		}
+		write(")");
+		write(" : ");
+		write("(");
+		for (CExpr elseln : e.elseExpr) {
+			expr(elseln);
+		}
+		write(")");
+
+		return null;
+	}
 	@Override
 	public Void visit(CIntExpr e) {
 		write(e.value);

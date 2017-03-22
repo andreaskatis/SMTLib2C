@@ -145,7 +145,6 @@ public class SkolemstoCtranslator {
         CIdExpr text = new CIdExpr("\""+ truename+" %f\\n\"");
         CBinaryExpr msec = new CBinaryExpr(secid, CBinaryOp.MULTIPLY, thousexp);
         pbody.add(text);
-//        pbody.add(secid);
         pbody.add(msec);
 
         CPrintFunction print = new CPrintFunction(pbody);
@@ -357,6 +356,20 @@ public class SkolemstoCtranslator {
             }
 
             return new CIfThenElseExpr(rename(iexp.cond, i), texp, elexp);
+        }  else if (exp instanceof CTernaryExpr) {
+            CTernaryExpr iexp = (CTernaryExpr) exp;
+            List<CExpr> texp = new ArrayList<>();
+            List<CExpr> elexp = new ArrayList<>();
+
+            for (CExpr t : iexp.thenExpr) {
+                texp.add(rename(t, i));
+            }
+
+            for (CExpr e : iexp.elseExpr) {
+                elexp.add(rename(e, i));
+            }
+
+            return new CTernaryExpr(rename(iexp.cond, i), texp, elexp);
         } else if (exp instanceof CForExpr) {
             CForExpr fexp = (CForExpr) exp;
             List<CExpr> bexp = new ArrayList<>();

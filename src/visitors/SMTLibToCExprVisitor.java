@@ -8,9 +8,6 @@ import java.util.List;
 
 public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
 
-        public List<CArrayDecl> inSet = new ArrayList<>();
-        public List<CArrayDecl> outSet = new ArrayList<>();
-
         public SMTLibToCExprVisitor() {
         }
 
@@ -20,11 +17,7 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
             String opName = e.op.name();
             CBinaryOp op = CBinaryOp.fromString(opName);
             CExpr rightExpr = e.right.accept(this);
-//            if (opName.equals(CBinaryOp.EQUAL.name())) {
-//                return new CAssignment(new CIdExpr(leftExpr.toString()), rightExpr);
-//            } else {
                 return new CBinaryExpr(leftExpr, op, rightExpr);
-//            }
         }
 
         @Override
@@ -64,6 +57,22 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
                 elsebd.add(eln.accept(this));
             }
             return new CIfThenElseExpr(cond, thenbd, elsebd);
+        }
+
+        @Override
+        public CExpr visit(TernaryExpr e) {
+            List<CExpr> thenbd = new ArrayList<>();
+            List<CExpr> elsebd = new ArrayList<>();
+
+            CExpr cond = e.cond.accept(this);
+            for (Expr tln : e.thenExpr) {
+                thenbd.add(tln.accept(this));
+            }
+
+            for (Expr eln : e.elseExpr) {
+                elsebd.add(eln.accept(this));
+            }
+            return new CTernaryExpr(cond, thenbd, elsebd);
         }
 
         @Override

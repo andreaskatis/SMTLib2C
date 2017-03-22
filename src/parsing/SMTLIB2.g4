@@ -26,7 +26,7 @@ expr: ID                                                       # idExpr
     | op= ('to_real' | 'to_int') expr                          # castExpr
     | 'not' expr                                               # notExpr
     | '-' expr                                                 # negateExpr
-    | op=('*' | '/' | 'mod') expr expr                         # binaryExpr
+    | op=('*' | '/' | 'div' | 'mod') expr expr                 # binaryExpr
     | op=('+' | '-') expr expr+                                # binaryExpr
     | op=('<' | '<=' | '>' | '>=' | '=' ) expr expr            # binaryExpr
     | op='and' expr expr+                                      # binaryExpr

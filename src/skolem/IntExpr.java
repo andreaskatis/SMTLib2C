@@ -14,6 +14,6 @@ public class IntExpr extends Expr {
 
     @Override
     public <T> T accept(ExprVisitor<T> visitor) {
-        return null;
+        return visitor.visit(this);
     }
 }

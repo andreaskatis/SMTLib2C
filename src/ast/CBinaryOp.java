@@ -5,6 +5,7 @@ public enum CBinaryOp {
 	MINUS ("-"),
 	MULTIPLY ("*"),
 	DIVIDE ("/"),
+	INT_DIVIDE("/"),
 	MODULUS ("%"),
 	EQUAL ("=="),
 	NOTEQUAL ("!="),

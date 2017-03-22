@@ -1,9 +1,16 @@
 // Generated from /home/dr41k/git/SMTLib2C/src/parsing/SMTLIB2.g4 by ANTLR 4.5.3
 package parsing;
-import org.antlr.v4.runtime.atn.*;
-import org.antlr.v4.runtime.dfa.DFA;
+
 import org.antlr.v4.runtime.*;
-import org.antlr.v4.runtime.tree.*;
+import org.antlr.v4.runtime.atn.ATN;
+import org.antlr.v4.runtime.atn.ATNDeserializer;
+import org.antlr.v4.runtime.atn.ParserATNSimulator;
+import org.antlr.v4.runtime.atn.PredictionContextCache;
+import org.antlr.v4.runtime.dfa.DFA;
+import org.antlr.v4.runtime.tree.ParseTreeListener;
+import org.antlr.v4.runtime.tree.ParseTreeVisitor;
+import org.antlr.v4.runtime.tree.TerminalNode;
+
 import java.util.List;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
@@ -17,8 +24,8 @@ public class SMTLIB2Parser extends Parser {
 		T__0=1, T__1=2, T__2=3, T__3=4, T__4=5, T__5=6, T__6=7, T__7=8, T__8=9, 
 		T__9=10, T__10=11, T__11=12, T__12=13, T__13=14, T__14=15, T__15=16, T__16=17, 
 		T__17=18, T__18=19, T__19=20, T__20=21, T__21=22, T__22=23, T__23=24, 
-		T__24=25, T__25=26, T__26=27, REAL=28, BOOL=29, INT=30, ID=31, WS=32, 
-		SL_COMMENT=33, ML_COMMENT=34, CS=35, ERROR=36;
+		T__24=25, T__25=26, T__26=27, T__27=28, REAL=29, BOOL=30, INT=31, ID=32, 
+		WS=33, SL_COMMENT=34, ML_COMMENT=35, CS=36, ERROR=37;
 	public static final int
 		RULE_scratch = 0, RULE_skolem = 1, RULE_check = 2, RULE_declare = 3, RULE_letexp = 4, 
 		RULE_body = 5, RULE_local = 6, RULE_type = 7, RULE_expr = 8;
@@ -29,14 +36,15 @@ public class SMTLIB2Parser extends Parser {
 
 	private static final String[] _LITERAL_NAMES = {
 		null, "'('", "'assert'", "')'", "'declare-fun'", "'let'", "'Int'", "'Bool'", 
-		"'Real'", "'to_real'", "'to_int'", "'not'", "'-'", "'*'", "'/'", "'mod'", 
-		"'+'", "'<'", "'<='", "'>'", "'>='", "'='", "'and'", "'or'", "'xor'", 
-		"'=>'", "'->'", "'ite'", null, null, null, null, null, null, null, "'(check-sat)'"
+		"'Real'", "'to_real'", "'to_int'", "'not'", "'-'", "'*'", "'/'", "'div'", 
+		"'mod'", "'+'", "'<'", "'<='", "'>'", "'>='", "'='", "'and'", "'or'", 
+		"'xor'", "'=>'", "'->'", "'ite'", null, null, null, null, null, null, 
+		null, "'(check-sat)'"
 	};
 	private static final String[] _SYMBOLIC_NAMES = {
 		null, null, null, null, null, null, null, null, null, null, null, null, 
 		null, null, null, null, null, null, null, null, null, null, null, null, 
-		null, null, null, null, "REAL", "BOOL", "INT", "ID", "WS", "SL_COMMENT", 
+		null, null, null, null, null, "REAL", "BOOL", "INT", "ID", "WS", "SL_COMMENT", 
 		"ML_COMMENT", "CS", "ERROR"
 	};
 	public static final Vocabulary VOCABULARY = new VocabularyImpl(_LITERAL_NAMES, _SYMBOLIC_NAMES);
@@ -228,7 +236,7 @@ public class SMTLIB2Parser extends Parser {
 				setState(30); 
 				_errHandler.sync(this);
 				_alt = getInterpreter().adaptivePredict(_input,2,_ctx);
-			} while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER );
+			} while ( _alt!=2 && _alt!= ATN.INVALID_ALT_NUMBER );
 			setState(32);
 			match(T__0);
 			setState(33);
@@ -263,6 +271,7 @@ public class SMTLIB2Parser extends Parser {
 			case T__24:
 			case T__25:
 			case T__26:
+			case T__27:
 			case REAL:
 			case BOOL:
 			case INT:
@@ -526,6 +535,7 @@ public class SMTLIB2Parser extends Parser {
 			case T__24:
 			case T__25:
 			case T__26:
+			case T__27:
 			case REAL:
 			case BOOL:
 			case INT:
@@ -607,7 +617,7 @@ public class SMTLIB2Parser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_type; }
-	 
+
 		public TypeContext() { }
 		public void copyFrom(TypeContext ctx) {
 			super.copyFrom(ctx);
@@ -712,7 +722,7 @@ public class SMTLIB2Parser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_expr; }
-	 
+
 		public ExprContext() { }
 		public void copyFrom(ExprContext ctx) {
 			super.copyFrom(ctx);
@@ -993,7 +1003,7 @@ public class SMTLIB2Parser extends Parser {
 				setState(89);
 				((BinaryExprContext)_localctx).op = _input.LT(1);
 				_la = _input.LA(1);
-				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << T__12) | (1L << T__13) | (1L << T__14))) != 0)) ) {
+				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << T__12) | (1L << T__13) | (1L << T__14) | (1L << T__15))) != 0)) ) {
 					((BinaryExprContext)_localctx).op = (Token)_errHandler.recoverInline(this);
 				} else {
 					consume();
@@ -1011,14 +1021,14 @@ public class SMTLIB2Parser extends Parser {
 				setState(93);
 				((BinaryExprContext)_localctx).op = _input.LT(1);
 				_la = _input.LA(1);
-				if ( !(_la==T__11 || _la==T__15) ) {
+				if ( !(_la==T__11 || _la==T__16) ) {
 					((BinaryExprContext)_localctx).op = (Token)_errHandler.recoverInline(this);
 				} else {
 					consume();
 				}
 				setState(94);
 				expr();
-				setState(96); 
+				setState(96);
 				_errHandler.sync(this);
 				_alt = 1;
 				do {
@@ -1034,10 +1044,10 @@ public class SMTLIB2Parser extends Parser {
 					default:
 						throw new NoViableAltException(this);
 					}
-					setState(98); 
+					setState(98);
 					_errHandler.sync(this);
 					_alt = getInterpreter().adaptivePredict(_input,7,_ctx);
-				} while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER );
+				} while ( _alt!=2 && _alt!= ATN.INVALID_ALT_NUMBER );
 				}
 				break;
 			case 10:
@@ -1047,7 +1057,7 @@ public class SMTLIB2Parser extends Parser {
 				setState(100);
 				((BinaryExprContext)_localctx).op = _input.LT(1);
 				_la = _input.LA(1);
-				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << T__16) | (1L << T__17) | (1L << T__18) | (1L << T__19) | (1L << T__20))) != 0)) ) {
+				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << T__17) | (1L << T__18) | (1L << T__19) | (1L << T__20) | (1L << T__21))) != 0)) ) {
 					((BinaryExprContext)_localctx).op = (Token)_errHandler.recoverInline(this);
 				} else {
 					consume();
@@ -1063,10 +1073,10 @@ public class SMTLIB2Parser extends Parser {
 				enterOuterAlt(_localctx, 11);
 				{
 				setState(104);
-				((BinaryExprContext)_localctx).op = match(T__21);
+				((BinaryExprContext)_localctx).op = match(T__22);
 				setState(105);
 				expr();
-				setState(107); 
+				setState(107);
 				_errHandler.sync(this);
 				_alt = 1;
 				do {
@@ -1082,10 +1092,10 @@ public class SMTLIB2Parser extends Parser {
 					default:
 						throw new NoViableAltException(this);
 					}
-					setState(109); 
+					setState(109);
 					_errHandler.sync(this);
 					_alt = getInterpreter().adaptivePredict(_input,8,_ctx);
-				} while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER );
+				} while ( _alt!=2 && _alt!= ATN.INVALID_ALT_NUMBER );
 				}
 				break;
 			case 12:
@@ -1095,14 +1105,14 @@ public class SMTLIB2Parser extends Parser {
 				setState(111);
 				((BinaryExprContext)_localctx).op = _input.LT(1);
 				_la = _input.LA(1);
-				if ( !(_la==T__22 || _la==T__23) ) {
+				if ( !(_la==T__23 || _la==T__24) ) {
 					((BinaryExprContext)_localctx).op = (Token)_errHandler.recoverInline(this);
 				} else {
 					consume();
 				}
 				setState(112);
 				expr();
-				setState(114); 
+				setState(114);
 				_errHandler.sync(this);
 				_alt = 1;
 				do {
@@ -1118,10 +1128,10 @@ public class SMTLIB2Parser extends Parser {
 					default:
 						throw new NoViableAltException(this);
 					}
-					setState(116); 
+					setState(116);
 					_errHandler.sync(this);
 					_alt = getInterpreter().adaptivePredict(_input,9,_ctx);
-				} while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER );
+				} while ( _alt!=2 && _alt!= ATN.INVALID_ALT_NUMBER );
 				}
 				break;
 			case 13:
@@ -1129,7 +1139,7 @@ public class SMTLIB2Parser extends Parser {
 				enterOuterAlt(_localctx, 13);
 				{
 				setState(118);
-				((BinaryExprContext)_localctx).op = match(T__24);
+				((BinaryExprContext)_localctx).op = match(T__25);
 				setState(119);
 				expr();
 				setState(120);
@@ -1141,7 +1151,7 @@ public class SMTLIB2Parser extends Parser {
 				enterOuterAlt(_localctx, 14);
 				{
 				setState(122);
-				((BinaryExprContext)_localctx).op = match(T__25);
+				((BinaryExprContext)_localctx).op = match(T__26);
 				setState(123);
 				expr();
 				setState(124);
@@ -1165,7 +1175,7 @@ public class SMTLIB2Parser extends Parser {
 				enterOuterAlt(_localctx, 16);
 				{
 				setState(130);
-				match(T__26);
+				match(T__27);
 				setState(131);
 				expr();
 				setState(132);
@@ -1188,7 +1198,7 @@ public class SMTLIB2Parser extends Parser {
 	}
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3&\u008c\4\2\t\2\4"+
+		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3\'\u008c\4\2\t\2\4"+
 		"\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\3\2\3\2"+
 		"\7\2\27\n\2\f\2\16\2\32\13\2\3\2\3\2\3\3\6\3\37\n\3\r\3\16\3 \3\3\3\3"+
 		"\3\3\3\3\3\3\5\3(\n\3\3\3\3\3\3\3\3\4\3\4\3\5\3\5\3\5\3\5\3\5\3\5\3\5"+
@@ -1197,31 +1207,31 @@ public class SMTLIB2Parser extends Parser {
 		"\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\6\nc\n\n\r\n\16\nd\3\n"+
 		"\3\n\3\n\3\n\3\n\3\n\3\n\6\nn\n\n\r\n\16\no\3\n\3\n\3\n\6\nu\n\n\r\n\16"+
 		"\nv\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3"+
-		"\n\5\n\u008a\n\n\3\n\2\2\13\2\4\6\b\n\f\16\20\22\2\7\3\2\13\f\3\2\17\21"+
-		"\4\2\16\16\22\22\3\2\23\27\3\2\31\32\u009c\2\30\3\2\2\2\4\36\3\2\2\2\6"+
+		"\n\5\n\u008a\n\n\3\n\2\2\13\2\4\6\b\n\f\16\20\22\2\7\3\2\13\f\3\2\17\22"+
+		"\4\2\16\16\23\23\3\2\24\30\3\2\32\33\u009c\2\30\3\2\2\2\4\36\3\2\2\2\6"+
 		",\3\2\2\2\b.\3\2\2\2\n\66\3\2\2\2\fE\3\2\2\2\16G\3\2\2\2\20O\3\2\2\2\22"+
 		"\u0089\3\2\2\2\24\27\5\4\3\2\25\27\5\6\4\2\26\24\3\2\2\2\26\25\3\2\2\2"+
 		"\27\32\3\2\2\2\30\26\3\2\2\2\30\31\3\2\2\2\31\33\3\2\2\2\32\30\3\2\2\2"+
 		"\33\34\7\2\2\3\34\3\3\2\2\2\35\37\5\b\5\2\36\35\3\2\2\2\37 \3\2\2\2 \36"+
 		"\3\2\2\2 !\3\2\2\2!\"\3\2\2\2\"#\7\3\2\2#$\7\4\2\2$\'\7\3\2\2%(\5\n\6"+
 		"\2&(\5\22\n\2\'%\3\2\2\2\'&\3\2\2\2()\3\2\2\2)*\7\5\2\2*+\7\5\2\2+\5\3"+
-		"\2\2\2,-\7%\2\2-\7\3\2\2\2./\7\3\2\2/\60\7\6\2\2\60\61\7!\2\2\61\62\7"+
+		"\2\2\2,-\7&\2\2-\7\3\2\2\2./\7\3\2\2/\60\7\6\2\2\60\61\7\"\2\2\61\62\7"+
 		"\3\2\2\62\63\7\5\2\2\63\64\5\20\t\2\64\65\7\5\2\2\65\t\3\2\2\2\66\67\7"+
 		"\7\2\2\67;\7\3\2\28:\5\16\b\298\3\2\2\2:=\3\2\2\2;9\3\2\2\2;<\3\2\2\2"+
 		"<>\3\2\2\2=;\3\2\2\2>?\7\5\2\2?@\7\3\2\2@A\5\f\7\2AB\7\5\2\2B\13\3\2\2"+
-		"\2CF\5\n\6\2DF\5\22\n\2EC\3\2\2\2ED\3\2\2\2F\r\3\2\2\2GH\7\3\2\2HI\7!"+
+		"\2CF\5\n\6\2DF\5\22\n\2EC\3\2\2\2ED\3\2\2\2F\r\3\2\2\2GH\7\3\2\2HI\7\""+
 		"\2\2IJ\5\22\n\2JK\7\5\2\2K\17\3\2\2\2LP\7\b\2\2MP\7\t\2\2NP\7\n\2\2OL"+
-		"\3\2\2\2OM\3\2\2\2ON\3\2\2\2P\21\3\2\2\2Q\u008a\7!\2\2R\u008a\7 \2\2S"+
-		"\u008a\7\36\2\2T\u008a\7\37\2\2UV\t\2\2\2V\u008a\5\22\n\2WX\7\r\2\2X\u008a"+
+		"\3\2\2\2OM\3\2\2\2ON\3\2\2\2P\21\3\2\2\2Q\u008a\7\"\2\2R\u008a\7!\2\2"+
+		"S\u008a\7\37\2\2T\u008a\7 \2\2UV\t\2\2\2V\u008a\5\22\n\2WX\7\r\2\2X\u008a"+
 		"\5\22\n\2YZ\7\16\2\2Z\u008a\5\22\n\2[\\\t\3\2\2\\]\5\22\n\2]^\5\22\n\2"+
 		"^\u008a\3\2\2\2_`\t\4\2\2`b\5\22\n\2ac\5\22\n\2ba\3\2\2\2cd\3\2\2\2db"+
 		"\3\2\2\2de\3\2\2\2e\u008a\3\2\2\2fg\t\5\2\2gh\5\22\n\2hi\5\22\n\2i\u008a"+
-		"\3\2\2\2jk\7\30\2\2km\5\22\n\2ln\5\22\n\2ml\3\2\2\2no\3\2\2\2om\3\2\2"+
+		"\3\2\2\2jk\7\31\2\2km\5\22\n\2ln\5\22\n\2ml\3\2\2\2no\3\2\2\2om\3\2\2"+
 		"\2op\3\2\2\2p\u008a\3\2\2\2qr\t\6\2\2rt\5\22\n\2su\5\22\n\2ts\3\2\2\2"+
-		"uv\3\2\2\2vt\3\2\2\2vw\3\2\2\2w\u008a\3\2\2\2xy\7\33\2\2yz\5\22\n\2z{"+
-		"\5\22\n\2{\u008a\3\2\2\2|}\7\34\2\2}~\5\22\n\2~\177\5\22\n\2\177\u008a"+
+		"uv\3\2\2\2vt\3\2\2\2vw\3\2\2\2w\u008a\3\2\2\2xy\7\34\2\2yz\5\22\n\2z{"+
+		"\5\22\n\2{\u008a\3\2\2\2|}\7\35\2\2}~\5\22\n\2~\177\5\22\n\2\177\u008a"+
 		"\3\2\2\2\u0080\u0081\7\3\2\2\u0081\u0082\5\22\n\2\u0082\u0083\7\5\2\2"+
-		"\u0083\u008a\3\2\2\2\u0084\u0085\7\35\2\2\u0085\u0086\5\22\n\2\u0086\u0087"+
+		"\u0083\u008a\3\2\2\2\u0084\u0085\7\36\2\2\u0085\u0086\5\22\n\2\u0086\u0087"+
 		"\5\22\n\2\u0087\u0088\5\22\n\2\u0088\u008a\3\2\2\2\u0089Q\3\2\2\2\u0089"+
 		"R\3\2\2\2\u0089S\3\2\2\2\u0089T\3\2\2\2\u0089U\3\2\2\2\u0089W\3\2\2\2"+
 		"\u0089Y\3\2\2\2\u0089[\3\2\2\2\u0089_\3\2\2\2\u0089f\3\2\2\2\u0089j\3"+
