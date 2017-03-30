@@ -10,7 +10,7 @@ declare: '(' 'declare-fun' ID '(' ')' type ')';
 
 letexp: 'let' '(' local* ')' '(' body ')';
 
-body: (letexp | expr);
+body: (letexp | expr expr);
 
 local: '(' ID expr ')';
 
