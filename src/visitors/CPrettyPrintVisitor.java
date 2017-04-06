@@ -259,7 +259,9 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 			for (CExpr ln : e.body) {
 				write("  ");
 				expr(ln);
+				newline();
 			}
+			write("  ");
 			write("return;");
 			newline();
 			write("}");

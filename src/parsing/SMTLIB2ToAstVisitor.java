@@ -110,16 +110,41 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             locals.addAll(locals(ctx.letexp()));
             List<Equation> inlinedlocals = inlinelocals(locals, locals);
             List<Expr> body = body(ctx.letexp().body());
-            List<Expr> tempbody = inlinelocalstoexprs(body, inlinedlocals);
-            List<Expr> updatedbody = convertEqualitiesToAssignments(tempbody);
-            List<Expr> finalbody = convertIfThenElsesToTernary(updatedbody);
-            return new Skolem(loc(ctx), locals, finalbody);
+            body = inlinelocalstoexprs(body, inlinedlocals);
+            body = convertEqualitiesToAssignments(body);
+            body = convertIfThenElsesToTernary(body);
+            body = convertBooleanValuesToExitExprs(body);
+            return new Skolem(loc(ctx), locals, body);
         } else {
             List<Expr> body = new ArrayList<>();
             body.add(expr(ctx.expr()));
-            List<Expr> updatedbody = convertEqualitiesToAssignments(body);
-            List<Expr> finalbody = convertIfThenElsesToTernary(updatedbody);
-            return new Skolem(loc(ctx), locals, finalbody);
+            body = convertEqualitiesToAssignments(body);
+            body = convertIfThenElsesToTernary(body);
+            body = convertBooleanValuesToExitExprs(body);
+            return new Skolem(loc(ctx), locals, body);
+        }
+    }
+
+    private List<Expr> convertBooleanValuesToExitExprs(List<Expr> tempbody) {
+        List<Expr> converted = new ArrayList<>();
+        for (Expr expr : tempbody) {
+            if (expr instanceof IfThenElseExpr) {
+                IfThenElseExpr iteexpr = (IfThenElseExpr) expr;
+                IfThenElseExpr iteconv = new IfThenElseExpr(iteexpr.cond,
+                        iteexpr.thenExpr, convertBooleanValuesToExitExprs(iteexpr.elseExpr));
+                converted.add(iteconv);
+            } else {
+                converted.add(convertBooleanValueToExitExpr(expr));
+            }
+        }
+        return converted;
+    }
+
+    private Expr convertBooleanValueToExitExpr(Expr expr) {
+        if (expr instanceof BoolExpr) {
+            return new ExitExpr();
+        } else {
+            return expr;
         }
     }
 
@@ -128,13 +153,14 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         for (Expr expr : tempbody) {
             if (expr instanceof IfThenElseExpr) {
                 IfThenElseExpr itebody = (IfThenElseExpr) expr;
+                Expr condexp = itebody.cond;
                 List<Expr> thenexp = itebody.thenExpr;
                 List<Expr> elsexp = itebody.elseExpr;
-                IfThenElseExpr iteconv = new IfThenElseExpr(itebody.cond,
+                IfThenElseExpr iteconv = new IfThenElseExpr(convertIfThenElseToTernaryExpr(condexp),
                         convertIfThenElsesToTernaryExprs(thenexp), convertIfThenElsesToTernaryExprs(elsexp));
                 converted.add(iteconv);
             } else {
-                converted.add(expr);
+                converted.add(convertIfThenElseToTernaryExpr(expr));
             }
         }
         return converted;
@@ -149,11 +175,11 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 converted.add(aconv);
             }  else if (expr instanceof IfThenElseExpr) {
                 IfThenElseExpr itexp = (IfThenElseExpr) expr;
-                IfThenElseExpr iteconv = new IfThenElseExpr(itexp.cond,
+                IfThenElseExpr iteconv = new IfThenElseExpr(convertIfThenElseToTernaryExpr(itexp.cond),
                         convertIfThenElsesToTernaryExprs(itexp.thenExpr), convertIfThenElsesToTernaryExprs(itexp.elseExpr));
                 converted.add(iteconv);
             } else {
-                converted.add(expr);
+                converted.add(convertIfThenElseToTernaryExpr(expr));
             }
         }
         return converted;
@@ -162,7 +188,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     private Expr convertIfThenElseToTernaryExpr(Expr expr) {
         if (expr instanceof IfThenElseExpr) {
             IfThenElseExpr iteexpr = (IfThenElseExpr) expr;
-            return new TernaryExpr(iteexpr.cond,iteexpr.thenExpr,iteexpr.elseExpr);
+            return new TernaryExpr(convertIfThenElseToTernaryExpr(iteexpr.cond),convertNestedIfThenElsesToTernaryExprs(iteexpr.thenExpr),convertNestedIfThenElsesToTernaryExprs(iteexpr.elseExpr));
         } else if (expr instanceof BinaryExpr) {
             BinaryExpr binexp = (BinaryExpr) expr;
             return new BinaryExpr(convertIfThenElseToTernaryExpr(binexp.left),
@@ -173,9 +199,27 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         } else if (expr instanceof CastExpr) {
             CastExpr castexp = (CastExpr) expr;
             return new CastExpr(castexp.type, convertIfThenElseToTernaryExpr(castexp.expr));
+        } else if (expr instanceof AssignExpr) {
+            AssignExpr assignexp = (AssignExpr) expr;
+            return new AssignExpr(assignexp.lhs, convertIfThenElseToTernaryExpr(assignexp.expr));
         } else {
             return expr;
         }
+    }
+
+    private List<Expr> convertNestedIfThenElsesToTernaryExprs(List<Expr> exprs) {
+        List<Expr> converted = new ArrayList<>();
+        for (Expr expr : exprs) {
+            if (expr instanceof IfThenElseExpr) {
+                IfThenElseExpr itexp = (IfThenElseExpr) expr;
+                TernaryExpr iteconv = new TernaryExpr(convertIfThenElseToTernaryExpr(itexp.cond),
+                        convertNestedIfThenElsesToTernaryExprs(itexp.thenExpr), convertNestedIfThenElsesToTernaryExprs(itexp.elseExpr));
+                converted.add(iteconv);
+            } else {
+                converted.add(convertIfThenElseToTernaryExpr(expr));
+            }
+        }
+        return converted;
     }
 
     private List<Expr> convertEqualitiesToAssignments(List<Expr> tempbody) {
@@ -189,7 +233,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                         convertAssignmentsinExprs(thenexp), convertAssignmentsinExprs(elsexp));
                 converted.add(iteconv);
             } else {
-                converted.add(expr);
+                converted.addAll(convertAssignmentinExpr(expr));
             }
         }
         return converted;
@@ -416,7 +460,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     @Override
     public Expr visitIdExpr(IdExprContext ctx) {
         if (ctx.ID().getText().equals("%init")) {
-            return new BoolExpr(loc(ctx),false);
+            return new BinaryExpr(loc(ctx), new IdExpr(loc(ctx), "init"), BinaryOp.EQUAL, new IntExpr(loc(ctx), BigInteger.valueOf(0)));
         } else {
             return new IdExpr(loc(ctx), ctx.ID().getText());
         }
@@ -517,8 +561,8 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             } else {
                 thenbd.add(expr(pctx.expr()));
             }
-        } else if (thenectx instanceof BoolExprContext) {
-            thenbd.add(new ExitExpr());
+//        } else if (thenectx instanceof BoolExprContext) {
+//            thenbd.add(new ExitExpr());
         }   else {
             thenbd.add(expr(thenectx));
         }
@@ -547,8 +591,8 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             }else {
                 elsebd.add(expr(pctx.expr()));
             }
-        } else if (elseectx instanceof BoolExprContext) {
-            elsebd.add(new ExitExpr());
+//        } else if (elseectx instanceof BoolExprContext) {
+//            elsebd.add(new ExitExpr());
         } else {
             elsebd.add(expr(elseectx));
         }

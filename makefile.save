@@ -1,0 +1,17 @@
+CC=gcc
+CFLAGS=-c -Wall -g
+LDFLAGS= -lm
+
+all: car_1
+
+car_1: car_1.o main.o 
+	$(CC) $(LDFLAGS) main.o car_1.o -o car_1 
+
+main.o: car_1_harness.c
+	$(CC) $(CFLAGS) car_1_harness.c 
+
+car_1.o: car_1.c
+	$(CC) $(CFLAGS) car_1.c	
+
+clean:
+	rm -rf *o car_1

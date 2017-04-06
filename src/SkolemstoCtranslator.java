@@ -65,7 +65,8 @@ public class SkolemstoCtranslator {
             return new CProgram(init, truename, vars, functions);
 
         } else {
-            return new CProgram(truename, vars, functions);
+            functions.add(addSingleSkolemUpdateFunction(init, funcalls));
+            return new CProgram(init, truename, vars, functions);
         }
     }
 
@@ -407,14 +408,22 @@ public class SkolemstoCtranslator {
         return new CUpdateFunction(body);
     }
 
+    private static CUpdateFunction addSingleSkolemUpdateFunction(CVarDecl init, List<CFunctionCallExpr> calls){
+        CIdExpr initvar = new CIdExpr(init.id);
+        CExpr body = createSingleSkolemUpdateBody(initvar, calls, 0).get(0);
+        return new CUpdateFunction(body);
+    }
+
+
     private static List<CExpr> createUpdateBody(CIdExpr init, CFunctionCallExpr mhcall, List<CFunctionCallExpr> calls, int value) {
         List<CExpr> body = new ArrayList<>();
-        CAssignment initassign = new CAssignment(init,
-                new CBinaryExpr(init, CBinaryOp.PLUS, new CIntExpr(BigInteger.valueOf(1))));
+
         if (calls.size() > 1) {
             List<CExpr> thenbody = new ArrayList<>();
             List<CExpr> elsebody = new ArrayList<>();
 
+            CAssignment initassign = new CAssignment(init,
+                    new CBinaryExpr(init, CBinaryOp.PLUS, new CIntExpr(BigInteger.valueOf(1))));
 
             thenbody.add(calls.get(0));
             thenbody.add(mhcall);
@@ -428,8 +437,28 @@ public class SkolemstoCtranslator {
         } else {
             body.add(calls.get(0));
             body.add(mhcall);
-            body.add(initassign);
             return body;
         }
+    }
+
+    private static List<CExpr> createSingleSkolemUpdateBody(CIdExpr init, List<CFunctionCallExpr> calls, int value) {
+        List<CExpr> body = new ArrayList<>();
+        List<CExpr> thenbody = new ArrayList<>();
+        List<CExpr> elsebody = new ArrayList<>();
+
+        CAssignment initassign = new CAssignment(init,
+                new CBinaryExpr(init, CBinaryOp.PLUS, new CIntExpr(BigInteger.valueOf(1))));
+
+
+        BigInteger val = BigInteger.valueOf(value);
+        CExpr cond = new CBinaryExpr(init, CBinaryOp.EQUAL, new CIntExpr(val));
+
+        thenbody.add(calls.get(0));
+        thenbody.add(initassign);
+
+        elsebody.add(calls.get(0));
+        body.add(new CIfThenElseExpr(cond, thenbody, elsebody));
+
+        return body;
     }
 }
