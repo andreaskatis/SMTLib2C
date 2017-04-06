@@ -119,10 +119,10 @@ public class SkolemstoCtranslator {
 
 
         SMTLibToCTypeVisitor typeVisitor = new SMTLibToCTypeVisitor();
-        CVarDecl start = new CVarDecl("start", new CNamedType("clock_t"),
+        CVarDecl start = new CVarDecl("smtlib2c_start", new CNamedType("clock_t"),
                 new CFunctionCall(new CClockFunction().name));
-        CVarDecl diff = new CVarDecl("clock_diff", new CNamedType("clock_t"));
-        CVarDecl sec = new CVarDecl("sec", CNamedType.DOUBLE);
+        CVarDecl diff = new CVarDecl("smtlib2c_clock_diff", new CNamedType("clock_t"));
+        CVarDecl sec = new CVarDecl("smtlib2c_sec", CNamedType.DOUBLE);
         vars.add(start);
         vars.add(diff);
         vars.add(sec);
@@ -174,11 +174,13 @@ public class SkolemstoCtranslator {
                     new CIntExpr(BigInteger.valueOf(0)), rand));
         }
         forbody.addAll(updates);
-        if (arraysize > 1) {
-            forbody.add(new CFunctionCallExpr(new CUpdateFunction().name));
-        } else {
-            forbody.add(new CFunctionCallExpr(functionName+Integer.toString(0)));
-        }
+        forbody.add(new CFunctionCallExpr(new CUpdateFunction().name));
+
+//        if (arraysize > 1) {
+//            forbody.add(new CFunctionCallExpr(new CUpdateFunction().name));
+//        } else {
+//            forbody.add(new CFunctionCallExpr(functionName+Integer.toString(0)));
+//        }
         CForExpr loop = new CForExpr(iterexp, iterassign, cond, incr, forbody);
         return loop;
     }
