@@ -1,6 +1,6 @@
 grammar SMTLIB2;
 
-scratch: (skolem | check)* EOF;
+scratch: inputs* properties* (skolem | check)* EOF;
 
 skolem: declare+ '(' 'assert' '(' (letexp | expr) ')' ')';
 
@@ -18,6 +18,12 @@ type: 'Int'                                              # intType
     | 'Bool'                                             # boolType
     | 'Real'                                             # realType
     ;
+
+
+inputs: ';-- INPUTS: ' (ID (',' ID)*)? ;
+
+properties: ';-- PROPERTIES: ' (ID (',' ID)*)? ;
+
 
 expr: ID                                                       # idExpr
     | INT                                                      # intExpr
@@ -47,8 +53,8 @@ ID: [a-zA-Z_$!~.%][a-zA-Z_0-9$!.~%]*;
 
 WS: [ \t\n\r\f]+ -> skip;
 
-SL_COMMENT: '//' (~[%\n\r] ~[\n\r]* | /* empty */) ('\r'? '\n')? -> skip;
-ML_COMMENT: '(*' .*? '*)' -> skip;
+SL_COMMENT: ';' (~[-\n\r] ~[-\n\r]* | /* empty */) ('\r'? '\n')? -> skip;
+
 CS: '(check-sat)' -> skip;
 
 ERROR: .;

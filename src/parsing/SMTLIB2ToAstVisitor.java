@@ -8,6 +8,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.antlr.v4.runtime.tree.TerminalNode;
 import parsing.SMTLIB2Parser.*;
 
 
@@ -18,107 +19,205 @@ import skolem.*;
 public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
 
     public Scratch scratch(ScratchContext ctx) {
+        List<String> insprops = realizabilityInputs(ctx.inputs());
         List<SkolemContext> skolemctx = ctx.skolem();
-        List<VarDecl> inputs = inputvars(skolemctx);
-        List<VarDecl> outputs = outputvars(skolemctx);
-        List<Skolem> skolems = skolems(skolemctx);
+        List<VarDecl> inputs = inputvars(skolemctx, insprops);
+        insprops.addAll(properties(ctx.properties()));
+        List<VarDecl> outputs = outputvars(skolemctx, insprops);
+        List<Skolem> skolems = skolems(skolemctx, insprops);
         return new Scratch(loc(ctx), inputs, outputs, skolems);
     }
 
-    private List<VarDecl> inputvars(List<SkolemContext> ctxs) {
-        List<VarDecl> decls = new ArrayList<>();
-        List<String> names = new ArrayList<>();
-        int skolem_index = 0;
-        if (ctxs == null) {
-            return decls;
-        }
-        for (SkolemContext ctx : ctxs) {
-            List<DeclareContext> dctxs = ctx.declare();
-            for (DeclareContext dctx : dctxs) {
-                String id = dctx.ID().getText();
-                if (id.endsWith("$"+Integer.toString(skolem_index))) {
-                    Type type = type(dctx.type());
-                    boolean contains = false;
-                    for (String name : names) {
-                        if (id.substring(0,id.length()-2).equals(name.substring(0,name.length()-2))) {
-                            contains = true;
-                            break;
-                        }
-                    }
-                    if (contains) {
-                        continue;
-                    } else {
-                        names.add(id);
-                        decls.add(new VarDecl(loc(dctx), rename(id), type));
-                    }
-
-                }
+    private List<String> realizabilityInputs(List<InputsContext> inputsctx) {
+        List<String> ids = new ArrayList<>();
+        for (InputsContext ictx : inputsctx) {
+            for (TerminalNode idctx : ictx.ID()) {
+                ids.add(idctx.getText());
             }
-            skolem_index++;
         }
-        return decls;
+        return ids;
     }
 
-    private List<VarDecl> outputvars(List<SkolemContext> ctxs) {
+    private List<String> properties(List<PropertiesContext> propertiesctx) {
+        List<String> ids = new ArrayList<>();
+        for (PropertiesContext pctx : propertiesctx) {
+            for (TerminalNode idctx : pctx.ID()) {
+                ids.add(idctx.getText());
+            }
+        }
+        return ids;
+    }
+
+    //it may be enough to use only the 0-th skolem
+    private List<VarDecl> inputvars(List<SkolemContext> skolems, List<String> inputs) {
+
         List<VarDecl> decls = new ArrayList<>();
         List<String> names = new ArrayList<>();
-        int skolem_index = 0;
-        if (ctxs == null) {
-            return decls;
-        }
-        for (SkolemContext ctx : ctxs) {
-            List<DeclareContext> dctxs = ctx.declare();
-            for (DeclareContext dctx : dctxs) {
-                String id = dctx.ID().getText();
-                if((id.endsWith("$"+Integer.toString(skolem_index+2)) ||
-                        id.endsWith("$~1"))) {
-                    Type type = type(dctx.type());
-                    String[] trunc = id.split("[$]");
-                    boolean contains = false;
-                    for (String name : names) {
-                        String[] truncname = name.split("[$]");
-                        if (trunc[1].equals(truncname[1])) {
-                            contains = true;
-                            break;
-                        }
-                    }
-                    if (contains) {
-                        continue;
-                    } else {
-                        names.add(id);
-                        decls.add(new VarDecl(loc(dctx), rename(id), type));
-                    }
 
+        for (SkolemContext skolem : skolems) {
+            List<DeclareContext> declares = skolem.declare();
+            for (DeclareContext declare : declares) {
+                String id = removeDelimiters(declare.ID().getText());
+//                String prefix = id;
+//                if (id.contains(".")) {
+//                    prefix = id.substring(0, id.indexOf("."));
+//                }
+//                if (ids.contains(prefix) && !(names.contains(id))) {
+//                    Type type = type(declare.type());
+//                    //replacingSymbols should happen after receing the IR, to support multiple outputs
+//                    decls.add(new VarDecl(loc(declare), replaceSymbols(id), type));
+//                    names.add(id);
+//                }
+                if (inputs.contains(id) && !(names.contains(id))) {
+                    Type type = type(declare.type());
+                    //replacingSymbols should happen after receing the IR, to support multiple outputs
+                    decls.add(new VarDecl(loc(declare), replaceSymbols(id), type));
+                    names.add(id);
                 }
             }
         }
+
         return decls;
     }
 
 
-        private List<Skolem> skolems(List<SkolemContext> ctxs) {
+
+    private String replaceSymbols(String str) {
+        return str.replaceAll("[~.]","_");
+    }
+
+    private String removeDelimiters(String str) {
+        if (str.startsWith("$")) {
+            str = str.substring(str.indexOf("$")+1, str.lastIndexOf("$"));
+        }
+        return str;
+    }
+
+//    private List<VarDecl> inputvars(List<SkolemContext> ctxs) {
+//        List<VarDecl> decls = new ArrayList<>();
+//        List<String> names = new ArrayList<>();
+//        int skolem_index = 0;
+//        if (ctxs == null) {
+//            return decls;
+//        }
+//        for (SkolemContext ctx : ctxs) {
+//            List<DeclareContext> dctxs = ctx.declare();
+//            for (DeclareContext dctx : dctxs) {
+//                String id = dctx.ID().getText();
+//                if (id.endsWith("$"+Integer.toString(skolem_index))) {
+//                    Type type = type(dctx.type());
+//                    boolean contains = false;
+//                    for (String name : names) {
+//                        if (id.substring(0,id.length()-2).equals(name.substring(0,name.length()-2))) {
+//                            contains = true;
+//                            break;
+//                        }
+//                    }
+//                    if (contains) {
+//                        continue;
+//                    } else {
+//                        names.add(id);
+//                        decls.add(new VarDecl(loc(dctx), rename(id), type));
+//                    }
+//
+//                }
+//            }
+//            skolem_index++;
+//        }
+//        return decls;
+//    }
+
+    private List<VarDecl> outputvars(List<SkolemContext> skolems, List<String> insprops) {
+
+        List<VarDecl> decls = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+
+        for (SkolemContext skolem : skolems) {
+            List<DeclareContext> declares = skolem.declare();
+            for (DeclareContext declare : declares) {
+                String id = removeDelimiters(declare.ID().getText());
+//                String prefix = id;
+//                if (id.contains(".")) {
+//                    prefix = id.substring(0, id.indexOf("."));
+//                }
+//                if (ids.contains(prefix) && !(names.contains(id))) {
+//                    Type type = type(declare.type());
+//                    //replacingSymbols should happen after receing the IR, to support multiple outputs
+//                    decls.add(new VarDecl(loc(declare), replaceSymbols(id), type));
+//                    names.add(id);
+//                }
+                if (!insprops.contains(id) && !(names.contains(id)) && !id.equals("%init")) {
+                    Type type = type(declare.type());
+                    //replacingSymbols should happen after receing the IR, to support multiple outputs
+                    decls.add(new VarDecl(loc(declare), replaceSymbols(id), type));
+                    names.add(id);
+                }
+            }
+        }
+
+        return decls;
+    }
+
+//    private List<VarDecl> outputvars(List<SkolemContext> ctxs) {
+//        List<VarDecl> decls = new ArrayList<>();
+//        List<String> names = new ArrayList<>();
+//        int skolem_index = 0;
+//        if (ctxs == null) {
+//            return decls;
+//        }
+//        for (SkolemContext ctx : ctxs) {
+//            List<DeclareContext> dctxs = ctx.declare();
+//            for (DeclareContext dctx : dctxs) {
+//                String id = dctx.ID().getText();
+//                if((id.endsWith("$"+Integer.toString(skolem_index+2)) ||
+//                        id.endsWith("$~1"))) {
+//                    Type type = type(dctx.type());
+//                    String[] trunc = id.split("[$]");
+//                    boolean contains = false;
+//                    for (String name : names) {
+//                        String[] truncname = name.split("[$]");
+//                        if (trunc[1].equals(truncname[1])) {
+//                            contains = true;
+//                            break;
+//                        }
+//                    }
+//                    if (contains) {
+//                        continue;
+//                    } else {
+//                        names.add(id);
+//                        decls.add(new VarDecl(loc(dctx), rename(id), type));
+//                    }
+//
+//                }
+//            }
+//        }
+//        return decls;
+//    }
+
+
+        private List<Skolem> skolems(List<SkolemContext> ctxs, List<String> insprops) {
         List<Skolem> skolems = new ArrayList<>();
         for (SkolemContext ctx : ctxs) {
-            skolems.add(skolem(ctx));
+            skolems.add(skolem(ctx, insprops));
         }
         return skolems;
     }
 
-    public Skolem skolem(SkolemContext ctx) {
+    public Skolem skolem(SkolemContext ctx, List<String> insprops) {
         List<Equation> locals = new ArrayList<>();
         if (ctx.letexp() !=null) {
             locals.addAll(locals(ctx.letexp()));
             List<Equation> inlinedlocals = inlinelocals(locals, locals);
             List<Expr> body = body(ctx.letexp().body());
             body = inlinelocalstoexprs(body, inlinedlocals);
-            body = convertEqualitiesToAssignments(body);
+            body = convertEqualitiesToAssignments(body, insprops);
             body = convertIfThenElsesToTernary(body);
             body = convertBooleanValuesToExitExprs(body);
             return new Skolem(loc(ctx), locals, body);
         } else {
             List<Expr> body = new ArrayList<>();
             body.add(expr(ctx.expr()));
-            body = convertEqualitiesToAssignments(body);
+            body = convertEqualitiesToAssignments(body, insprops);
             body = convertIfThenElsesToTernary(body);
             body = convertBooleanValuesToExitExprs(body);
             return new Skolem(loc(ctx), locals, body);
@@ -222,7 +321,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         return converted;
     }
 
-    private List<Expr> convertEqualitiesToAssignments(List<Expr> tempbody) {
+    private List<Expr> convertEqualitiesToAssignments(List<Expr> tempbody, List<String> insprops) {
         List<Expr> converted = new ArrayList<>();
         for (Expr expr : tempbody) {
             if (expr instanceof IfThenElseExpr) {
@@ -230,30 +329,36 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 List<Expr> thenexp = itebody.thenExpr;
                 List<Expr> elsexp = itebody.elseExpr;
                 IfThenElseExpr iteconv = new IfThenElseExpr(itebody.cond,
-                        convertAssignmentsinExprs(thenexp), convertAssignmentsinExprs(elsexp));
+                        convertAssignmentsinExprs(thenexp, insprops), convertAssignmentsinExprs(elsexp, insprops));
                 converted.add(iteconv);
             } else {
-                converted.addAll(convertAssignmentinExpr(expr));
+                converted.addAll(convertAssignmentinExpr(expr, insprops));
             }
         }
         return converted;
     }
 
-    private List<Expr> convertAssignmentsinExprs(List<Expr> exprs) {
+    private List<Expr> convertAssignmentsinExprs(List<Expr> exprs, List<String> insprops) {
         List<Expr> converted = new ArrayList<>();
         for (Expr expr : exprs) {
             if (expr instanceof BinaryExpr) {
                 BinaryExpr binexp = (BinaryExpr) expr;
                 if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
-                    converted.add(new AssignExpr(binexp.left, binexp.right));
+                    if (binexp.left instanceof IdExpr) {
+                        IdExpr leftexp = (IdExpr) binexp.left;
+                        String id = removeDelimiters(leftexp.id);
+                        if (!insprops.contains(id)) {
+                            converted.add(new AssignExpr(binexp.left, binexp.right));
+                        }
+                    }
                 } else {
-                    converted.addAll(convertAssignmentinExpr(binexp.left));
-                    converted.addAll(convertAssignmentinExpr(binexp.right));
+                    converted.addAll(convertAssignmentinExpr(binexp.left, insprops));
+                    converted.addAll(convertAssignmentinExpr(binexp.right, insprops));
                 }
             } else if (expr instanceof IfThenElseExpr) {
                 IfThenElseExpr itexp = (IfThenElseExpr) expr;
                 IfThenElseExpr iteconv = new IfThenElseExpr(itexp.cond,
-                        convertAssignmentsinExprs(itexp.thenExpr), convertAssignmentsinExprs(itexp.elseExpr));
+                        convertAssignmentsinExprs(itexp.thenExpr, insprops), convertAssignmentsinExprs(itexp.elseExpr, insprops));
                 converted.add(iteconv);
             } else {
                 converted.add(expr);
@@ -262,17 +367,23 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         return converted;
     }
 
-    private List<Expr> convertAssignmentinExpr(Expr expr) {
+    private List<Expr> convertAssignmentinExpr(Expr expr, List<String> insprops) {
         List<Expr> converted = new ArrayList<>();
         if (expr instanceof BinaryExpr) {
             BinaryExpr binexp = (BinaryExpr) expr;
             if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
-                converted.add(new AssignExpr(binexp.left, binexp.right));
-                } else {
-                    converted.addAll(convertAssignmentinExpr(binexp.left));
-                    converted.addAll(convertAssignmentinExpr(binexp.right));
+                if (binexp.left instanceof IdExpr) {
+                    IdExpr leftexp = (IdExpr) binexp.left;
+                    String id = removeDelimiters(leftexp.id);
+                    if (!insprops.contains(id)) {
+                        converted.add(new AssignExpr(binexp.left, binexp.right));
+                    }
                 }
+            } else {
+                converted.addAll(convertAssignmentinExpr(binexp.left, insprops));
+                converted.addAll(convertAssignmentinExpr(binexp.right, insprops));
             }
+        }
         return converted;
     }
 

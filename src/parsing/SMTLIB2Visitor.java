@@ -74,6 +74,18 @@ public interface SMTLIB2Visitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitRealType(SMTLIB2Parser.RealTypeContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link SMTLIB2Parser#inputs}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitInputs(SMTLIB2Parser.InputsContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link SMTLIB2Parser#properties}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitProperties(SMTLIB2Parser.PropertiesContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code idExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.
 	 * @param ctx the parse tree

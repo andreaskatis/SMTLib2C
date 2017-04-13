@@ -114,6 +114,26 @@ public interface SMTLIB2Listener extends ParseTreeListener {
 	 */
 	void exitRealType(SMTLIB2Parser.RealTypeContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link SMTLIB2Parser#inputs}.
+	 * @param ctx the parse tree
+	 */
+	void enterInputs(SMTLIB2Parser.InputsContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link SMTLIB2Parser#inputs}.
+	 * @param ctx the parse tree
+	 */
+	void exitInputs(SMTLIB2Parser.InputsContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link SMTLIB2Parser#properties}.
+	 * @param ctx the parse tree
+	 */
+	void enterProperties(SMTLIB2Parser.PropertiesContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link SMTLIB2Parser#properties}.
+	 * @param ctx the parse tree
+	 */
+	void exitProperties(SMTLIB2Parser.PropertiesContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code idExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.
 	 * @param ctx the parse tree
