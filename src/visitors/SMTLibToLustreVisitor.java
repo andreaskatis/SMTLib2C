@@ -49,11 +49,11 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
             if (id.contains("$")) {
                 String[] trunc = id.split("[$]");
                 String name = trunc[1].replaceAll("[~.]","_");
-                String index = trunc[2];
+                String index = trunc[2].replaceAll("~1", "-1");
                 Integer ind = Integer.valueOf(index);
-                if (ind == 1 || ind == 2) {
+                if (ind == 0 || ind == 2) {
                 	return new jkind.lustre.IdExpr(name);
-                } else if (ind == 0) {
+                } else if (ind == -1) {
                 	return new jkind.lustre.UnaryExpr(
                 		jkind.lustre.UnaryOp.PRE, new jkind.lustre.IdExpr(name));
                 } else {
@@ -141,32 +141,6 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 		List<jkind.lustre.VarDecl> outputs; 
 		
 		@Override
-		public Ast visit(Scratch scratch) {
-			inputs = scratch.inputs.stream().map(
-				s -> (jkind.lustre.VarDecl)s.accept(this)).collect(Collectors.toList());
-			outputs = scratch.outputs.stream().map(
-				s -> (jkind.lustre.VarDecl)s.accept(this)).collect(Collectors.toList());
-			
-			List<jkind.lustre.Node> nodes;
-			nodes = scratch.skolems.stream().map(
-				s -> (jkind.lustre.Node)s.accept(this)).collect(Collectors.toList());
-			
-			jkind.lustre.builders.ProgramBuilder builder = 
-					new jkind.lustre.builders.ProgramBuilder();
-			
-			// for now, only compile single node programs.
-			assert(nodes.size() == 1);
-			builder.addNodes(nodes);
-			builder.setMain(nodes.get(0).id);
-
-			return builder.build();
-		}
-
-		public jkind.lustre.Program scratch(Scratch s) {
-			return (jkind.lustre.Program)s.accept(this);
-		}
-		
-		@Override
 		public Ast visit(VarDecl varDecl) {
             SMTLibToLustreTypeVisitor typeVisitor = new SMTLibToLustreTypeVisitor();
 			return new jkind.lustre.VarDecl(varDecl.id, varDecl.type.accept(typeVisitor));
@@ -198,9 +172,9 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 			eb.addLhs("init");
 			jkind.lustre.Expr rhs = 
 				new jkind.lustre.BinaryExpr(
-					new jkind.lustre.IntExpr(0), 
+					new jkind.lustre.IntExpr(1), 
 					jkind.lustre.BinaryOp.ARROW, 
-					new jkind.lustre.IntExpr(1));
+					new jkind.lustre.IntExpr(0));
 			eb.setExpr(rhs);
 			return eb.build();
 		}
@@ -222,5 +196,31 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 			return skolem(sk, "Skolem_main");
 		}
 
+		@Override
+		public Ast visit(Scratch scratch) {
+			inputs = scratch.inputs.stream().map(
+				s -> (jkind.lustre.VarDecl)s.accept(this)).collect(Collectors.toList());
+			outputs = scratch.outputs.stream().map(
+				s -> (jkind.lustre.VarDecl)s.accept(this)).collect(Collectors.toList());
+			
+			List<jkind.lustre.Node> nodes;
+			nodes = scratch.skolems.stream().map(
+				s -> (jkind.lustre.Node)s.accept(this)).collect(Collectors.toList());
+			
+			jkind.lustre.builders.ProgramBuilder builder = 
+					new jkind.lustre.builders.ProgramBuilder();
+			
+			// for now, only compile single node programs.
+			assert(nodes.size() == 1);
+			builder.addNodes(nodes);
+			builder.setMain(nodes.get(0).id);
+
+			return builder.build();
+		}
+
+		public jkind.lustre.Program scratch(Scratch s) {
+			return (jkind.lustre.Program)s.accept(this);
+		}
+		
     }
 

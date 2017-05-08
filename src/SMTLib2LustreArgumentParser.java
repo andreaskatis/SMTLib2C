@@ -2,8 +2,8 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 
 public class SMTLib2LustreArgumentParser extends ArgumentParser {
-    private static final String LUSTREC = "lustrec_harness";
-    private static final String NODENAME = "lustrecnode";
+    private static final String NODENAME = "main";
+    private static final String OBSERVER = "observer";
 
 
     private final SMTLib2LustreSettings settings;
@@ -20,7 +20,8 @@ public class SMTLib2LustreArgumentParser extends ArgumentParser {
     @Override
     protected Options getOptions() {
         Options options = super.getOptions();
-        options.addOption(NODENAME, true, "name of main node in original lustre file (have to use with lustrec_harness)");
+        options.addOption(NODENAME, true, "name of main node in lustre contract file (default: 'main') ");
+        options.addOption(OBSERVER, true, "file name for lustre file containing synchronous observer contract to use as harness (default: null)");
         return options;
     }
 
@@ -39,10 +40,14 @@ public class SMTLib2LustreArgumentParser extends ArgumentParser {
 
         super.parseCommandLine(line);
 
-        ensureInclusive(line, LUSTREC, NODENAME);
+        ensureInclusive(line, NODENAME, OBSERVER);
 
         if (line.hasOption(NODENAME)) {
-            settings.lustrecnode = line.getOptionValue(NODENAME);
+            settings.main = line.getOptionValue(NODENAME);
+        }
+        
+        if (line.hasOption(OBSERVER)) {
+        	settings.observer = line.getOptionValue(OBSERVER);
         }
     }
 }
