@@ -303,6 +303,8 @@ public class SkolemstoCtranslator {
         return truncated;
     }
 
+    // MWW: this could be done with very little code using the ExprMapVisitor.
+    
     private static CExpr rename(CExpr exp, int i) {
         if (exp instanceof CIdExpr) {
             CIdExpr idexp = (CIdExpr) exp;

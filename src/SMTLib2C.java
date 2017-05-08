@@ -8,6 +8,7 @@ public class SMTLib2C {
         try {
             SMTLib2CSettings settings = SMTLib2CArgumentParser.parse(args);
             Scratch scratch = Main.parseSkolems(settings.filename);
+                        
             String truename = settings.filename.substring(0, settings.filename.lastIndexOf("_"));
             CHeader header = SkolemstoCtranslator.addHeader(scratch, truename);
             CProgram program = SkolemstoCtranslator.translate(scratch, truename);

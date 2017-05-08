@@ -19,6 +19,43 @@ public class TernaryExpr extends Expr {
     }
 
     @Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((cond == null) ? 0 : cond.hashCode());
+		result = prime * result + ((elseExpr == null) ? 0 : elseExpr.hashCode());
+		result = prime * result + ((thenExpr == null) ? 0 : thenExpr.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		TernaryExpr other = (TernaryExpr) obj;
+		if (cond == null) {
+			if (other.cond != null)
+				return false;
+		} else if (!cond.equals(other.cond))
+			return false;
+		if (elseExpr == null) {
+			if (other.elseExpr != null)
+				return false;
+		} else if (!elseExpr.equals(other.elseExpr))
+			return false;
+		if (thenExpr == null) {
+			if (other.thenExpr != null)
+				return false;
+		} else if (!thenExpr.equals(other.thenExpr))
+			return false;
+		return true;
+	}
+
+	@Override
     public <T> T accept(visitors.ExprVisitor<T> visitor) {
         return visitor.visit(this);
     }
