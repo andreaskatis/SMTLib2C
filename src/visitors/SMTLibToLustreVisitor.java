@@ -172,9 +172,9 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 			eb.addLhs("init");
 			jkind.lustre.Expr rhs = 
 				new jkind.lustre.BinaryExpr(
-					new jkind.lustre.IntExpr(1), 
+					new jkind.lustre.IntExpr(0), 
 					jkind.lustre.BinaryOp.ARROW, 
-					new jkind.lustre.IntExpr(0));
+					new jkind.lustre.IntExpr(1));
 			eb.setExpr(rhs);
 			return eb.build();
 		}

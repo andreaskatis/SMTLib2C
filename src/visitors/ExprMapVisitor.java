@@ -1,6 +1,9 @@
 package visitors;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import skolem.AssignExpr;
@@ -22,8 +25,13 @@ public class ExprMapVisitor implements ExprVisitor<Expr> {
 		return e.accept(this);
 	}
 	
+	protected <A, B> List<B> map(Function<? super A, ? extends B> f, List<A> xs) {
+		return xs.stream().map(f).collect(toList());
+	}
+
+
 	public List<Expr> exprList(List<Expr> el) {
-		return el.stream().map(e -> expr(e)).collect(Collectors.toList());
+		return map(e -> expr(e), el); 
 	}
 	
 	@Override

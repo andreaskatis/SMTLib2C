@@ -1,9 +1,14 @@
 import skolem.*;
+import visitors.JKindToJSynIds;
 import visitors.SMTLibToLustreVisitor;
 import ast.*;
+import jkind.slicing.DependencyMap;
+import jkind.slicing.LustreSlicer;
+import jkind.translation.RemoveEnumTypes;
 
 import java.io.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class SMTLib2Lustre {
     public static void main(String[] args) {
@@ -21,7 +26,7 @@ public class SMTLib2Lustre {
             
             String truename = settings.filename.substring(0, settings.filename.lastIndexOf("_"));
             PrintWriter writerImplementation = new PrintWriter(new FileOutputStream(truename+".lus"));
-            writerImplementation.print(impl.toString());
+            writerImplementation.print(program.toString());
             writerImplementation.close();
 
         } catch (IOException e) {
@@ -34,6 +39,7 @@ public class SMTLib2Lustre {
     public static final String CONTRACT_NODE = "__CONTRACT";
     public static final String IMPL_NODE = "__IMPL";
     public static final String ALL_ASSERTS = "__ASSERTS";
+    
     
     protected static jkind.lustre.Program createMainNode(jkind.lustre.Program impl, jkind.lustre.Node contractNodeOpt) {
 		jkind.lustre.Node implMain = impl.getMainNode(); 
@@ -62,7 +68,8 @@ public class SMTLib2Lustre {
 			
 			// make sure the interfaces match up...
 			contractNodeOpt.inputs.forEach(i -> { 
-				if (!implMain.inputs.contains(i) && !implMain.outputs.contains(i)) {
+				if (!Stream.concat(implMain.inputs.stream(), implMain.outputs.stream())
+						.anyMatch(e -> i.id.equals(e.id))) {
 					throw new Error("Error: contract input " + i.id + " not found in implementation.");
 				}
 			}  );
@@ -88,7 +95,14 @@ public class SMTLib2Lustre {
 		}
 		pb.addNode(mainNode);
 		pb.setMain(mainNode.id);
-		return pb.build();
+		jkind.lustre.Program lustre = pb.build();
+		
+		// MWW TEMPORARY
+		System.out.println("Main program: ");
+		System.out.println(lustre.toString());
+		// END MWW TEMPORARY
+		return lustre;
+
     }
     
     
@@ -99,11 +113,16 @@ public class SMTLib2Lustre {
     	try {
 	    	jkind.lustre.Program program = jkind.Main.parseLustre(filename);
 			jkind.lustre.Node main = jkind.translation.Translate.translate(program);
+			main = RemoveEnumTypes.node(main);
+			DependencyMap dependencyMap = new DependencyMap(main, main.properties);
+			main = LustreSlicer.slice(main, dependencyMap);
+			main = JKindToJSynIds.node(main);
 			
 			jkind.lustre.builders.NodeBuilder nb = new jkind.lustre.builders.NodeBuilder("__CONTRACT");
 			nb.addInputs(main.inputs);
 			nb.addOutput(new jkind.lustre.VarDecl(ALL_ASSERTS, jkind.lustre.NamedType.BOOL));
 			nb.addOutputs(main.outputs);
+			nb.addLocals(main.locals);
 			nb.addEquations(main.equations);
 			nb.addProperties(main.properties);
 			nb.addIvcs(main.ivc);
@@ -117,7 +136,14 @@ public class SMTLib2Lustre {
 			eb.setExpr(assertExpr);
 			nb.addEquation(eb.build());
 			
-			return nb.build();
+			jkind.lustre.Node contract = nb.build();
+			
+			// MWW TEMPORARY
+			System.out.println("Contract node: ");
+			System.out.println(contract.toString());
+			// END MWW TEMPORARY
+			
+			return contract;
     	} catch (IOException e) {
     		e.printStackTrace();
     		System.exit(0);
@@ -145,6 +171,10 @@ public class SMTLib2Lustre {
         System.out.println("!!! Translating to Lustre !!!");
         SMTLibToLustreVisitor slv = new SMTLibToLustreVisitor();
         jkind.lustre.Program program = slv.scratch(lifted);
+		// MWW TEMPORARY
+		System.out.println("Main program: ");
+		System.out.println(program.toString());
+		// END MWW TEMPORARY
         return program;
     }
 }
