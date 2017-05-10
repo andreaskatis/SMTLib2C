@@ -148,7 +148,6 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 		
 		public jkind.lustre.Equation assignExpr(Expr e) {
 			assert(e instanceof AssignExpr);
-			System.out.println("Translating: " + e);
 			AssignExpr ae = (AssignExpr)e;
 			
 			jkind.lustre.Expr lhs = ae.lhs.accept(this);

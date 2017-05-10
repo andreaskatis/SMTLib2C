@@ -11,6 +11,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class SMTLib2Lustre {
+	
+	public static boolean debug = false;
+	
     public static void main(String[] args) {
         try {
             SMTLib2LustreSettings settings = SMTLib2LustreArgumentParser.parse(args);
@@ -97,10 +100,10 @@ public class SMTLib2Lustre {
 		pb.setMain(mainNode.id);
 		jkind.lustre.Program lustre = pb.build();
 		
-		// MWW TEMPORARY
-		System.out.println("Main program: ");
-		System.out.println(lustre.toString());
-		// END MWW TEMPORARY
+		if (debug) {
+			System.out.println("Main program: ");
+			System.out.println(lustre.toString());
+		}
 		return lustre;
 
     }
@@ -138,10 +141,10 @@ public class SMTLib2Lustre {
 			
 			jkind.lustre.Node contract = nb.build();
 			
-			// MWW TEMPORARY
+			if (debug) {
 			System.out.println("Contract node: ");
 			System.out.println(contract.toString());
-			// END MWW TEMPORARY
+			}
 			
 			return contract;
     	} catch (IOException e) {
@@ -153,28 +156,30 @@ public class SMTLib2Lustre {
     
     protected static jkind.lustre.Program translateToLustre(Scratch scratch) {
     	
-        // MWW: temporary
-        System.out.println("!!! ORIGINAL !!!");
-        visitors.SMTLibPrettyPrintVisitor ppv = new visitors.SMTLibPrettyPrintVisitor();
-        ppv.scratch(scratch);
-        System.out.println(ppv.toString());
-        
+    	if (debug) {
+	    	visitors.SMTLibPrettyPrintVisitor ppv = new visitors.SMTLibPrettyPrintVisitor();
+	        ppv.scratch(scratch);
+	        System.out.println("!!! ORIGINAL !!!");
+	        System.out.println(ppv.toString());
+    	}
+    	
         visitors.SMTLibLiftAssignments liftv = new visitors.SMTLibLiftAssignments();
         Scratch lifted = liftv.scratch(scratch);
-        System.out.println("!!! LIFTED ASSIGNMENTS !!!");
 
-        ppv = new visitors.SMTLibPrettyPrintVisitor();
-        ppv.scratch(lifted);
-        System.out.println(ppv.toString());
-        // MWW: end temporary
-        
-        System.out.println("!!! Translating to Lustre !!!");
+        if (debug) {
+            System.out.println("!!! LIFTED ASSIGNMENTS !!!");
+	    	visitors.SMTLibPrettyPrintVisitor ppv = new visitors.SMTLibPrettyPrintVisitor();
+	        ppv.scratch(lifted);
+	        System.out.println(ppv.toString());
+	        System.out.println("!!! Translating to Lustre !!!");
+        }
         SMTLibToLustreVisitor slv = new SMTLibToLustreVisitor();
         jkind.lustre.Program program = slv.scratch(lifted);
-		// MWW TEMPORARY
-		System.out.println("Main program: ");
-		System.out.println(program.toString());
-		// END MWW TEMPORARY
+
+        if (debug) {// MWW TEMPORARY
+			System.out.println("Main program: ");
+			System.out.println(program.toString());
+        } // END MWW TEMPORARY
         return program;
     }
 }

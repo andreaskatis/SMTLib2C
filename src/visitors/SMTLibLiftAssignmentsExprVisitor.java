@@ -19,12 +19,14 @@ public class SMTLibLiftAssignmentsExprVisitor implements ExprVisitor<List<Expr>>
         	Map<Boolean, List<Expr>> partition = partitionThenElseExprLists(original);
         	
         	// MWW: temporary
-        	List<Expr> el = partition.get(Boolean.FALSE); 
+/*        	List<Expr> el = partition.get(Boolean.FALSE); 
         	if (!el.isEmpty()) {
         		System.out.println("Non-empty non-assignment partition for SMTLibLiftAssignmentsExprVisitor: ");
         		SMTLibPrettyPrintVisitor ppv = new SMTLibPrettyPrintVisitor(); 
-        		ppv.exprList(el);
+        		ppv.exprList(el); 
+        		System.out.println(ppv.toString());
         	}
+        	*/
         	// MWW: end temporary
         	
         	assert(partition.get(Boolean.FALSE).isEmpty());
