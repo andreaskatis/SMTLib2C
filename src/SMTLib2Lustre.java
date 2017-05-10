@@ -18,7 +18,9 @@ public class SMTLib2Lustre {
         try {
             SMTLib2LustreSettings settings = SMTLib2LustreArgumentParser.parse(args);
             Scratch scratch = Main.parseSkolems(settings.filename);
-            jkind.lustre.Program impl = translateToLustre(scratch);
+            String truename = settings.filename.substring(0, settings.filename.lastIndexOf("_"));
+            
+            jkind.lustre.Program impl = translateToLustre(truename, scratch);
             jkind.lustre.Node contractNodeOpt = null; 
             
             if (settings.observer != null) {
@@ -27,12 +29,20 @@ public class SMTLib2Lustre {
             
             jkind.lustre.Program program = createMainNode(impl, contractNodeOpt);
             
-            String truename = settings.filename.substring(0, settings.filename.lastIndexOf("_"));
-            PrintWriter writerImplementation = new PrintWriter(new FileOutputStream(truename+".lus"));
-            writerImplementation.print(program.toString());
-            writerImplementation.close();
+            printToFile(truename+".lus", program.toString());
 
         } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
+    }
+    
+    public static void printToFile(String fileName, String result) {
+    	try {
+    		PrintWriter writerImplementation = new PrintWriter(new FileOutputStream(fileName));
+	        writerImplementation.print(result.toString());
+	        writerImplementation.close();
+    	} catch (IOException e) {
             e.printStackTrace();
             System.exit(0);
         }
@@ -44,6 +54,12 @@ public class SMTLib2Lustre {
     public static final String ALL_ASSERTS = "__ASSERTS";
     
     
+    protected static boolean inputMatches (jkind.lustre.Node implMain, jkind.lustre.VarDecl i) { 
+		return (Stream.concat(implMain.inputs.stream(), implMain.outputs.stream())
+				.anyMatch(e -> i.id.equals(e.id))); 
+    }
+    
+
     protected static jkind.lustre.Program createMainNode(jkind.lustre.Program impl, jkind.lustre.Node contractNodeOpt) {
 		jkind.lustre.Node implMain = impl.getMainNode(); 
     	
@@ -70,17 +86,18 @@ public class SMTLib2Lustre {
 			jkind.lustre.builders.EquationBuilder ceb = new jkind.lustre.builders.EquationBuilder();
 			
 			// make sure the interfaces match up...
-			contractNodeOpt.inputs.forEach(i -> { 
-				if (!Stream.concat(implMain.inputs.stream(), implMain.outputs.stream())
-						.anyMatch(e -> i.id.equals(e.id))) {
-					throw new Error("Error: contract input " + i.id + " not found in implementation.");
-				}
-			}  );
-
+	
 			// build contract call & assert
 			jkind.lustre.Expr contractCall = 
 					new jkind.lustre.NodeCallExpr(CONTRACT_NODE, 
-						contractNodeOpt.inputs.stream().map(i -> new jkind.lustre.IdExpr(i.id))
+						contractNodeOpt.inputs.stream().map(i -> {
+							if (inputMatches(implMain, i)) {
+								return new jkind.lustre.IdExpr(i.id);
+							} else {
+								System.out.println("WARNING: using default value for contract input: " + i.id);							
+								jkind.translation.DefaultValueVisitor dvv = new jkind.translation.DefaultValueVisitor();
+								return i.type.accept(dvv);
+							}})
 							.collect(Collectors.toList()));
 			ceb.setExpr(contractCall);
 			contractNodeOpt.outputs.stream().forEach(i -> { ceb.addLhs(i.id); });
@@ -107,6 +124,8 @@ public class SMTLib2Lustre {
 		return lustre;
 
     }
+    
+    
     
     
     protected static jkind.lustre.Node createContractNode(SMTLib2LustreSettings settings) {
@@ -145,7 +164,8 @@ public class SMTLib2Lustre {
 			System.out.println("Contract node: ");
 			System.out.println(contract.toString());
 			}
-			
+			printToFile(filename + ".contract.lus.kind", contract.toString());
+						
 			return contract;
     	} catch (IOException e) {
     		e.printStackTrace();
@@ -154,7 +174,7 @@ public class SMTLib2Lustre {
     	}
     }
     
-    protected static jkind.lustre.Program translateToLustre(Scratch scratch) {
+    protected static jkind.lustre.Program translateToLustre(String fileName, Scratch scratch) {
     	
     	if (debug) {
 	    	visitors.SMTLibPrettyPrintVisitor ppv = new visitors.SMTLibPrettyPrintVisitor();
@@ -180,6 +200,7 @@ public class SMTLib2Lustre {
 			System.out.println("Main program: ");
 			System.out.println(program.toString());
         } // END MWW TEMPORARY
+		printToFile(fileName + ".impl.lus.kind", program.toString());
         return program;
     }
 }

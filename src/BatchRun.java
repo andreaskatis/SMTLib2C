@@ -26,6 +26,7 @@ public class BatchRun {
 				try {
 					SMTLib2Lustre.main(s2largs);
 				} catch (Throwable e) {
+					System.out.println("Exception: " + e);
 					System.out.println("FAILED FOR MODEL: " + skolem.getCanonicalPath());
 				}
 			}
