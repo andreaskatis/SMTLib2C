@@ -1,16 +1,14 @@
-package parsing;
+package parsing.smtlib;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import org.antlr.v4.runtime.tree.TerminalNode;
-import parsing.SMTLIB2Parser.*;
-
+import parsing.smtlib.SMTLIB2Parser.*;
 
 
 
@@ -204,15 +202,20 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     }
 
     public Skolem skolem(SkolemContext ctx, List<String> insprops) {
+        Map<String, Expr> fastlocals = new HashMap<>();
         List<Equation> locals = new ArrayList<>();
         if (ctx.letexp() !=null) {
+            fastlocals.putAll(fastlocals(ctx.letexp()));
             locals.addAll(locals(ctx.letexp()));
-            List<Equation> inlinedlocals = inlinelocals(locals, locals);
+            List<Equation> fastinlinedlocals = fastinlinelocals(locals, fastlocals);
+//            List<Equation> inlinedlocals = inlinelocals(locals, locals);
             List<Expr> body = body(ctx.letexp().body());
-            body = inlinelocalstoexprs(body, inlinedlocals);
+            body = inlinelocalstoexprs(body, fastinlinedlocals);
+//            body = inlinelocalstoexprs(body, inlinedlocals);
             body = convertEqualitiesToAssignments(body, insprops);
             body = convertIfThenElsesToTernary(body);
             body = convertBooleanValuesToExitExprs(body);
+            body = foldConstantsinExprs(body);
             return new Skolem(loc(ctx), locals, body);
         } else {
             List<Expr> body = new ArrayList<>();
@@ -221,6 +224,298 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             body = convertIfThenElsesToTernary(body);
             body = convertBooleanValuesToExitExprs(body);
             return new Skolem(loc(ctx), locals, body);
+        }
+    }
+
+    private List<Expr> foldConstantsinExprs(List<Expr> tempbody) {
+        List<Expr> folded = new ArrayList<>();
+        for (Expr expr : tempbody) {
+            if (expr instanceof IfThenElseExpr) {
+                IfThenElseExpr iteexpr = (IfThenElseExpr) expr;
+                Expr foldedcond = foldConstantsinExpr(iteexpr.cond);
+                if (foldedcond instanceof BoolExpr) {
+                    BoolExpr blexpr = (BoolExpr) iteexpr.cond;
+                    if (blexpr.value) {
+                        folded.addAll(foldConstantsinExprs(iteexpr.thenExpr));
+                    } else {
+                        folded.addAll(foldConstantsinExprs(iteexpr.elseExpr));
+                    }
+                } else {
+                    IfThenElseExpr iteconv = new IfThenElseExpr(foldedcond,
+                            foldConstantsinExprs(iteexpr.thenExpr),foldConstantsinExprs(iteexpr.elseExpr));
+                    folded.add(iteconv);
+                }
+
+            } else {
+                folded.add(foldConstantsinExpr(expr));
+            }
+        }
+        return folded;
+    }
+
+    private Expr foldConstantsinExpr(Expr expr) {
+        if (expr instanceof BinaryExpr) {
+            BinaryExpr binexp = (BinaryExpr) expr;
+            Expr foldedleft = foldConstantsinExpr(binexp.left);
+            Expr foldedright = foldConstantsinExpr(binexp.right);
+            if ((foldedleft instanceof IntExpr) && (foldedright instanceof IntExpr)) {
+                int leftval = ((IntExpr) foldedleft).value.intValue();
+                int rightval = ((IntExpr) foldedright).value.intValue();
+
+                if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
+                    return new BoolExpr(leftval == rightval);
+                } else if (binexp.op.name().equals(BinaryOp.NOTEQUAL.name())) {
+                    return new BoolExpr(leftval != rightval);
+                } else if (binexp.op.name().equals(BinaryOp.GREATER.name())) {
+                    return new BoolExpr(leftval > rightval);
+                } else if (binexp.op.name().equals(BinaryOp.GREATEREQUAL.name())) {
+                    return new BoolExpr(leftval >= rightval);
+                } else if (binexp.op.name().equals(BinaryOp.LESS.name())) {
+                    return new BoolExpr(leftval < rightval);
+                } else if (binexp.op.name().equals(BinaryOp.LESSEQUAL.name())) {
+                    return new BoolExpr(leftval <= rightval);
+                } else if (binexp.op.name().equals(BinaryOp.PLUS.name())) {
+                    return new IntExpr(binexp.location, new BigInteger (Integer.toString(leftval + rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.MINUS.name())) {
+                    return new IntExpr(binexp.location, new BigInteger (Integer.toString(leftval - rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                    return new IntExpr(binexp.location, new BigInteger (Integer.toString(leftval * rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.DIVIDE.name()) || binexp.op.name().equals(BinaryOp.INT_DIVIDE.name())) {
+                    return new IntExpr(binexp.location, new BigInteger (Integer.toString(leftval / rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.MODULUS.name())) {
+                    //assuming non-negative integers in mod
+                    return new IntExpr(binexp.location, new BigInteger (Integer.toString(leftval % rightval)));
+                } else {
+                    return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                }
+            } else if ((foldedleft instanceof IntExpr) && !(foldedright instanceof IntExpr)) {
+                int leftval = ((IntExpr) foldedleft).value.intValue();
+                if (leftval == 0) {
+                    if (binexp.op.name().equals(BinaryOp.PLUS.name())) {
+                        return foldedright;
+                    } else if (binexp.op.name().equals(BinaryOp.MINUS.name())) {
+                        return new UnaryExpr(UnaryOp.NEGATIVE,foldedright);
+                    } else if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return new IntExpr(binexp.location, BigInteger.valueOf(0));
+                    } else if (binexp.op.name().equals(BinaryOp.DIVIDE.name())) {
+                        return new IntExpr(binexp.location, BigInteger.valueOf(0));
+                    } else if (binexp.op.name().equals(BinaryOp.MODULUS.name())) {
+                        return new IntExpr(binexp.location, BigInteger.valueOf(0));
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else if (leftval == 1) {
+                    if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return foldedright;
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else {
+                    return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                }
+            } else if (!(foldedleft instanceof IntExpr) && (foldedright instanceof IntExpr)) {
+                int rightval = ((IntExpr) foldedright).value.intValue();
+                if (rightval == 0) {
+                    if (binexp.op.name().equals(BinaryOp.PLUS.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.MINUS.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return new IntExpr(binexp.location, BigInteger.valueOf(0));
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else if (rightval == 1) {
+                    if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.DIVIDE.name()) || binexp.op.name().equals(BinaryOp.INT_DIVIDE.name())) {
+                        return foldedleft;
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else {
+                    return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                }
+            } else if ((foldedleft instanceof RealExpr) && (foldedright instanceof RealExpr)) {
+                double leftval = ((RealExpr) foldedleft).value.doubleValue();
+                double rightval = ((RealExpr) foldedright).value.doubleValue();
+
+                if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
+                    return new BoolExpr(leftval == rightval);
+                } else if (binexp.op.name().equals(BinaryOp.NOTEQUAL.name())) {
+                    return new BoolExpr(leftval != rightval);
+                } else if (binexp.op.name().equals(BinaryOp.GREATER.name())) {
+                    return new BoolExpr(leftval > rightval);
+                } else if (binexp.op.name().equals(BinaryOp.GREATEREQUAL.name())) {
+                    return new BoolExpr(leftval >= rightval);
+                } else if (binexp.op.name().equals(BinaryOp.LESS.name())) {
+                    return new BoolExpr(leftval < rightval);
+                } else if (binexp.op.name().equals(BinaryOp.LESSEQUAL.name())) {
+                    return new BoolExpr(leftval <= rightval);
+                } else if (binexp.op.name().equals(BinaryOp.PLUS.name())) {
+                    return new RealExpr(binexp.location, new BigDecimal (Double.toString(leftval + rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.MINUS.name())) {
+                    return new RealExpr(binexp.location, new BigDecimal (Double.toString(leftval - rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                    return new RealExpr(binexp.location, new BigDecimal (Double.toString(leftval * rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.DIVIDE.name()) || binexp.op.name().equals(BinaryOp.INT_DIVIDE.name())) {
+                    return new RealExpr(binexp.location, new BigDecimal (Double.toString(leftval / rightval)));
+                } else if (binexp.op.name().equals(BinaryOp.MODULUS.name())) {
+                    //assuming non-negative integers in mod
+                    return new RealExpr(binexp.location, new BigDecimal (Double.toString(leftval % rightval)));
+                } else {
+                    return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                }
+            } else if ((foldedleft instanceof RealExpr) && !(foldedright instanceof RealExpr)) {
+                double leftval = ((RealExpr) foldedleft).value.doubleValue();
+                if (leftval == 0) {
+                    if (binexp.op.name().equals(BinaryOp.PLUS.name())) {
+                        return foldedright;
+                    } else if (binexp.op.name().equals(BinaryOp.MINUS.name())) {
+                        return new UnaryExpr(UnaryOp.NEGATIVE,foldedright);
+                    } else if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return new RealExpr(binexp.location, BigDecimal.valueOf(0));
+                    } else if (binexp.op.name().equals(BinaryOp.DIVIDE.name())) {
+                        return new RealExpr(binexp.location, BigDecimal.valueOf(0));
+                    } else if (binexp.op.name().equals(BinaryOp.MODULUS.name())) {
+                        return new RealExpr(binexp.location, BigDecimal.valueOf(0));
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else if (leftval == 1) {
+                    if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return foldedright;
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else {
+                    return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                }
+            } else if (!(foldedleft instanceof RealExpr) && (foldedright instanceof RealExpr)) {
+                double rightval = ((RealExpr) foldedright).value.doubleValue();
+                if (rightval == 0) {
+                    if (binexp.op.name().equals(BinaryOp.PLUS.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.MINUS.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return new RealExpr(binexp.location, BigDecimal.valueOf(0));
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else if (rightval == 1) {
+                    if (binexp.op.name().equals(BinaryOp.MULTIPLY.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.DIVIDE.name())) {
+                        return foldedleft;
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else {
+                    return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                }
+            } else if ((foldedleft instanceof BoolExpr) && (foldedright instanceof BoolExpr)) {
+                boolean leftval = ((BoolExpr) foldedleft).value;
+                boolean rightval = ((BoolExpr) foldedright).value;
+                if (binexp.op.name().equals(BinaryOp.EQUAL.name())) {
+                    return new BoolExpr(leftval == rightval);
+                } else if (binexp.op.name().equals(BinaryOp.NOTEQUAL.name())) {
+                    return new BoolExpr(leftval != rightval);
+                } else if (binexp.op.name().equals(BinaryOp.AND.name())) {
+                    return new BoolExpr(leftval && rightval);
+                } else if (binexp.op.name().equals(BinaryOp.OR.name())) {
+                    return new BoolExpr(leftval || rightval);
+                } else if (binexp.op.name().equals(BinaryOp.XOR.name())) {
+                    return new BoolExpr(leftval ^ rightval);
+                } else if (binexp.op.name().equals(BinaryOp.IMPLIES.name())) {
+                    return new BoolExpr((!leftval || rightval));
+                } else {
+                    return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                }
+            } else if ((foldedleft instanceof BoolExpr) && !(foldedright instanceof BoolExpr)) {
+                BoolExpr leftbool = (BoolExpr) foldedleft;
+                if (leftbool.value) {
+                    if (binexp.op.name().equals(BinaryOp.AND.name())) {
+                        return foldedright;
+                    } else if (binexp.op.name().equals(BinaryOp.OR.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.IMPLIES.name())) {
+                        return foldedright;
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else {
+                    if (binexp.op.name().equals(BinaryOp.AND.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.OR.name())) {
+                        return foldedright;
+                    } else if (binexp.op.name().equals(BinaryOp.IMPLIES.name())) {
+                        return new BoolExpr(true);
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                }
+            } else if (!(foldedleft instanceof BoolExpr) && (foldedright instanceof BoolExpr)) {
+                BoolExpr rightbool = (BoolExpr) foldedright;
+                if (rightbool.value) {
+                    if (binexp.op.name().equals(BinaryOp.AND.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.OR.name())) {
+                        return foldedright;
+                    } else if (binexp.op.name().equals(BinaryOp.IMPLIES.name())) {
+                        return foldedright;
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                } else {
+                    if (binexp.op.name().equals(BinaryOp.AND.name())) {
+                        return foldedright;
+                    } else if (binexp.op.name().equals(BinaryOp.OR.name())) {
+                        return foldedleft;
+                    } else if (binexp.op.name().equals(BinaryOp.IMPLIES.name())) {
+                        return new UnaryExpr(UnaryOp.NOT, foldedleft);
+                    } else {
+                        return new BinaryExpr(foldedleft,binexp.op,foldedright);
+                    }
+                }
+            } else {
+                return new BinaryExpr(foldedleft,binexp.op,foldedright);
+            }
+        } else if (expr instanceof UnaryExpr) {
+            UnaryExpr uexpr = (UnaryExpr) expr;
+            Expr foldedsubexpr = foldConstantsinExpr(uexpr.expr);
+            if (uexpr.op.name().equals(UnaryOp.NOT.name()) && (foldedsubexpr instanceof BoolExpr)) {
+                BoolExpr boolexpr = (BoolExpr) foldedsubexpr;
+                return new BoolExpr(!boolexpr.value);
+            } else if (uexpr.op.name().equals(UnaryOp.NEGATIVE) && (foldedsubexpr instanceof UnaryExpr)) {
+                UnaryExpr subunexpr = (UnaryExpr) foldedsubexpr;
+                if (subunexpr.op.name().endsWith(UnaryOp.NEGATIVE.name())) {
+                    return foldedsubexpr;
+                } else {
+                    return new UnaryExpr(uexpr.op,foldedsubexpr);
+                }
+            } else {
+                return new UnaryExpr(uexpr.op,foldedsubexpr);
+            }
+        } else if (expr instanceof AssignExpr) {
+            AssignExpr aexpr = (AssignExpr) expr;
+            return new AssignExpr(aexpr.lhs, foldConstantsinExpr(aexpr.expr));
+        } else if (expr instanceof TernaryExpr) {
+            TernaryExpr texpr = (TernaryExpr) expr;
+            Expr foldedcond = foldConstantsinExpr(texpr.cond);
+            if (foldedcond instanceof BoolExpr) {
+                BoolExpr blexpr = (BoolExpr) foldedcond;
+                if (blexpr.value) {
+                    return (foldConstantsinExprs(texpr.thenExpr).get(0));
+                } else {
+                    return (foldConstantsinExprs(texpr.elseExpr).get(0));
+                }
+            } else {
+                return new TernaryExpr(foldedcond,
+                        foldConstantsinExprs(texpr.thenExpr),foldConstantsinExprs(texpr.elseExpr));
+            }
+        } else {
+            return expr;
         }
     }
 
@@ -387,7 +682,76 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         return converted;
     }
 
-    private List<Equation> inlinelocals(List<Equation> locals, List<Equation> lookup) {
+        private List<Equation> fastinlinelocals(List<Equation> locals, Map<String, Expr> lookup) {
+            List<Equation> inlined = new ArrayList<>();
+            for (Equation loc : locals) {
+                Expr locexpr = loc.expr;
+                if (locexpr instanceof IfThenElseExpr) {
+                    IfThenElseExpr itexp = (IfThenElseExpr) locexpr;
+                    IfThenElseExpr inlinedexp = new IfThenElseExpr(fastinlinelocalstoexp(itexp.cond, lookup).get(0),
+                            fastinlinelocalstoexprs(itexp.thenExpr, lookup), fastinlinelocalstoexprs(itexp.elseExpr, lookup));
+                    inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+                } else if (locexpr instanceof BinaryExpr) {
+                    BinaryExpr binexp = (BinaryExpr) locexpr;
+                    BinaryExpr inlinedexp = new BinaryExpr(fastinlinelocalstoexp(binexp.left, lookup).get(0),
+                            binexp.op, fastinlinelocalstoexp(binexp.right, lookup).get(0));
+                    inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+                } else if (locexpr instanceof UnaryExpr) {
+                    UnaryExpr unexp = (UnaryExpr) locexpr;
+                    UnaryExpr inlinedexp = new UnaryExpr(unexp.op, fastinlinelocalstoexp(unexp.expr, lookup).get(0));
+                    inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+                } else if (locexpr instanceof CastExpr) {
+                    CastExpr castexp = (CastExpr) locexpr;
+                    CastExpr inlinedexp = new CastExpr(castexp.type, fastinlinelocalstoexp(castexp.expr, lookup).get(0));
+                    inlined.add(new Equation(loc.location, loc.lhs, inlinedexp));
+                } else {
+                    inlined.add(loc);
+                }
+            }
+            return inlined;
+        }
+
+    private List<Expr> fastinlinelocalstoexprs(List<Expr> exprs, Map<String, Expr> lookup) {
+        List<Expr> inlined = new ArrayList<>();
+        for (Expr exp : exprs) {
+            inlined.addAll(fastinlinelocalstoexp(exp, lookup));
+        }
+        return inlined;
+    }
+
+    private List<Expr> fastinlinelocalstoexp(Expr expr, Map<String, Expr> lookup) {
+        List<Expr> exprs = new ArrayList<>();
+        if (expr instanceof IdExpr) {
+            IdExpr idexp = (IdExpr) expr;
+            if (idexp.id.startsWith("a!")) {
+                if (lookup.containsKey(idexp.id)) {
+                    exprs.addAll((fastinlinelocalstoexp(lookup.get(idexp.id), lookup)));
+                }
+            } else {
+                exprs.add(expr);
+            }
+        } else if (expr instanceof BinaryExpr) {
+            BinaryExpr binexp = (BinaryExpr) expr;
+            exprs.add(new BinaryExpr(fastinlinelocalstoexp(binexp.left, lookup).get(0), binexp.op, fastinlinelocalstoexp(binexp.right, lookup).get(0)));
+        } else if (expr instanceof UnaryExpr) {
+            UnaryExpr unexp = (UnaryExpr) expr;
+            exprs.add(new UnaryExpr(unexp.op, fastinlinelocalstoexp(unexp.expr, lookup).get(0)));
+
+        } else if (expr instanceof CastExpr) {
+            CastExpr castexp = (CastExpr) expr;
+            exprs.add(new CastExpr(castexp.type, fastinlinelocalstoexp(castexp.expr, lookup).get(0)));
+        } else if (expr instanceof IfThenElseExpr) {
+            IfThenElseExpr itexp = (IfThenElseExpr) expr;
+            exprs.add(new IfThenElseExpr(fastinlinelocalstoexp(itexp.cond, lookup).get(0),
+                    fastinlinelocalstoexprs(itexp.thenExpr, lookup),
+                    fastinlinelocalstoexprs(itexp.elseExpr, lookup)));
+        } else {
+            exprs.add(expr);
+        }
+        return exprs;
+    }
+
+        private List<Equation> inlinelocals(List<Equation> locals, List<Equation> lookup) {
         List<Equation> inlined = new ArrayList<>();
         for (Equation loc : locals) {
             Expr locexpr = loc.expr;
@@ -459,7 +823,31 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     }
 
 
-
+    private Map<String, Expr> fastlocals(LetexpContext letCtx) {
+        Map<String, Expr> fastlocs = new HashMap<>();
+        List<Equation> locs = new ArrayList<>();
+        if (letCtx == null) {
+            return fastlocs;
+        }
+        for (LocalContext loc : letCtx.local()) {
+            ExprContext locctx = loc.expr();
+//            if (isAssignmentBlock(loc)) {
+//                ExprContext locctx = loc.expr();
+//                for (Expr e : splitassignments(locctx)) {
+//                    locs.add(new Equation(loc(loc), new IdExpr(loc(loc), loc.ID().getText()), e));
+//                }
+//            } else {
+//                locs.add(new Equation(loc(loc), new IdExpr(loc(loc), loc.ID().getText()), expr(loc.expr())));
+//            }
+            locs.add(new Equation(loc(loc), new IdExpr(loc(loc),loc.ID().getText()), expr(locctx)));
+            fastlocs.put(loc.ID().getText(), expr(locctx));
+        }
+        if (letCtx.body().letexp() !=null) {
+            locs.addAll(locals(letCtx.body().letexp()));
+            fastlocs.putAll(fastlocals(letCtx.body().letexp()));
+        }
+        return fastlocs;
+    }
 
     private List<Equation> locals(LetexpContext letCtx) {
         List<Equation> locs = new ArrayList<>();

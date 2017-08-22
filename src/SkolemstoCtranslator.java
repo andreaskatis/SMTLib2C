@@ -30,15 +30,17 @@ public class SkolemstoCtranslator {
 
         for (VarDecl var : scratch.inputs) {
             NamedType vartype = (NamedType) var.type;
+            String varid = keywordRename(truncate(var.id));
             CArrayDecl variable =
-                    new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
+                    new CArrayDecl(new CIdExpr(varid),typeVisitor.visit(vartype), arraysize);
             vars.add(variable);
         }
 
         for (VarDecl var : scratch.outputs) {
             NamedType vartype = (NamedType) var.type;
+            String varid = keywordRename(truncate(var.id));
             CArrayDecl variable =
-                    new CArrayDecl(new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
+                    new CArrayDecl(new CIdExpr(varid),typeVisitor.visit(vartype), arraysize);
             outputs.add(variable);
             vars.add(variable);
         }
@@ -70,6 +72,14 @@ public class SkolemstoCtranslator {
         }
     }
 
+    private static String keywordRename(String name) {
+        String renamed = name;
+        if (renamed.equals("time")) {
+            renamed = "skolem_" +  renamed;
+        }
+        return renamed;
+    }
+
 
     public static CHeader addHeader(Scratch scratch, String filename) {
         String[] path = filename.split("[/]");
@@ -88,15 +98,17 @@ public class SkolemstoCtranslator {
 
         for (VarDecl var : scratch.inputs) {
             NamedType vartype = (NamedType) var.type;
+            String varid = keywordRename(truncate(var.id));
             CArrayDecl arr = new CArrayDecl(
-                    new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
+                    new CIdExpr(varid),typeVisitor.visit(vartype), arraysize);
             inputs.add(arr);
         }
 
         for (VarDecl var : scratch.outputs) {
             NamedType vartype = (NamedType) var.type;
+            String varid = keywordRename(truncate(var.id));
             CArrayDecl variable = new CArrayDecl(
-                    new CIdExpr(truncate(var.id)),typeVisitor.visit(vartype), arraysize);
+                    new CIdExpr(varid),typeVisitor.visit(vartype), arraysize);
             outputs.add(variable);
         }
 
@@ -170,7 +182,8 @@ public class SkolemstoCtranslator {
         for (VarDecl var : scratch.inputs) {
             NamedType vartype = (NamedType) var.type;
             CExpr rand = createrandcall((CNamedType) visitor.visit(vartype));
-            updates.add(new CArrayUpdateExpr(new CIdExpr(truncate(var.id)),
+            String varid = keywordRename(truncate(var.id));
+            updates.add(new CArrayUpdateExpr(new CIdExpr(varid),
                     new CIntExpr(BigInteger.valueOf(0)), rand));
         }
         forbody.addAll(updates);
@@ -299,7 +312,15 @@ public class SkolemstoCtranslator {
 
 
     private static String truncate(String id) {
-        String truncated = id.split("[$]")[0];
+        String truncated;
+        if (id.startsWith("|")) {
+            truncated = id.substring(1).split("[$]")[1];
+            truncated = truncated.replaceAll("[\\[\\]]","_");
+        } else if (id.startsWith("_aeval_tmp")) {
+            truncated = id.substring(1);
+        } else {
+            truncated = id.split("[$]")[0];
+        }
         return truncated;
     }
 
@@ -313,11 +334,10 @@ public class SkolemstoCtranslator {
                 return new CBoolExpr(false);
             } else if (id.contains("$")) {
                 String[] trunc = id.split("[$]");
-                String name = trunc[1].replaceAll("[~.]","_");
-                String index = trunc[2].replaceAll("~1", Integer.toString(i - 1));
-                if (index.equals("-1))")) {
-                    System.out.println(index);
-                }
+                String name = keywordRename(trunc[1].replaceAll("[~.|\\[\\]]","_"));
+                String striparrayindex = trunc[2].replaceAll("\\|","");
+                String index = striparrayindex.replaceAll("~1", Integer.toString(i - 1));
+
                 Integer ind = Integer.valueOf(index);
                 if (ind >= i) {
                     return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(i)));
@@ -326,6 +346,8 @@ public class SkolemstoCtranslator {
                 }else {
                     return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(ind)));
                 }
+            } else if (id.startsWith("_aeval_tmp")) {
+                return new CArrayAccessExpr(new CIdExpr(id.substring(1)), new CIntExpr(BigInteger.valueOf(0)));
             } else {
                 return exp;
             }

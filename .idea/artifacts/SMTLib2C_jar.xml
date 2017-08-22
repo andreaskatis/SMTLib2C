@@ -3,9 +3,9 @@
     <output-path>$PROJECT_DIR$/out/artifacts/SMTLib2C_jar</output-path>
     <root id="archive" name="SMTLib2C.jar">
       <element id="module-output" name="SMTLib2C" />
-      <element id="extracted-dir" path="$PROJECT_DIR$/dep/antlr-runtime-4.5.3.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/dep/commons-cli-1.2.jar" path-in-jar="/" />
-      <element id="extracted-dir" path="$PROJECT_DIR$/dep/antlr-4.5.3-complete.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/dep/jkind.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/dep/antlr-4.4-complete.jar" path-in-jar="/" />
     </root>
   </artifact>
 </component>

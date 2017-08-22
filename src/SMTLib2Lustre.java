@@ -29,7 +29,7 @@ public class SMTLib2Lustre {
             
             jkind.lustre.Program program = createMainNode(impl, contractNodeOpt);
             
-            printToFile(truename+".lus", program.toString());
+            printToFile(truename+".new.lus", program.toString());
 
         } catch (IOException e) {
             e.printStackTrace();

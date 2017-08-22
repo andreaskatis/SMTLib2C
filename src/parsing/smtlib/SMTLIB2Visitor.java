@@ -1,5 +1,5 @@
 // Generated from SMTLIB2.g4 by ANTLR 4.4
-package parsing;
+package parsing.smtlib;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;
 
