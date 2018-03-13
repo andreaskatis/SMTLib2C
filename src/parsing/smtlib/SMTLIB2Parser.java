@@ -3,8 +3,11 @@ package parsing.smtlib;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.misc.*;
 import org.antlr.v4.runtime.tree.*;
 import java.util.List;
+import java.util.Iterator;
+import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class SMTLIB2Parser extends Parser {
@@ -1087,7 +1090,7 @@ public class SMTLIB2Parser extends Parser {
 				setState(127);
 				((BinaryExprContext)_localctx).op = _input.LT(1);
 				_la = _input.LA(1);
-				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << T__30) | (1L << T__23) | (1L << T__15) | (1L << T__6))) != 0)) ) {
+				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << T__30) | (1L << T__15) | (1L << T__6))) != 0)) ) {
 					((BinaryExprContext)_localctx).op = (Token)_errHandler.recoverInline(this);
 				}
 				consume();
@@ -1102,7 +1105,7 @@ public class SMTLIB2Parser extends Parser {
 				setState(131);
 				((BinaryExprContext)_localctx).op = _input.LT(1);
 				_la = _input.LA(1);
-				if ( !(_la==T__2 || _la==T__0) ) {
+				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << T__23) | (1L << T__2) | (1L << T__0))) != 0)) ) {
 					((BinaryExprContext)_localctx).op = (Token)_errHandler.recoverInline(this);
 				}
 				consume();
@@ -1267,7 +1270,7 @@ public class SMTLIB2Parser extends Parser {
 		"\f\3\f\3\f\6\f\u0094\n\f\r\f\16\f\u0095\3\f\3\f\3\f\6\f\u009b\n\f\r\f"+
 		"\16\f\u009c\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3"+
 		"\f\3\f\3\f\5\f\u00b0\n\f\3\f\2\2\r\2\4\6\b\n\f\16\20\22\24\26\2\7\4\2"+
-		"\4\4\f\f\6\2\3\3\n\n\22\22\33\33\4\2\37\37!!\5\2\7\b\23\24\26\26\3\2\27"+
+		"\4\4\f\f\5\2\3\3\22\22\33\33\5\2\n\n\37\37!!\5\2\7\b\23\24\26\26\3\2\27"+
 		"\30\u00c6\2\33\3\2\2\2\4.\3\2\2\2\6<\3\2\2\2\b>\3\2\2\2\nF\3\2\2\2\fU"+
 		"\3\2\2\2\16W\3\2\2\2\20_\3\2\2\2\22a\3\2\2\2\24l\3\2\2\2\26\u00af\3\2"+
 		"\2\2\30\32\5\22\n\2\31\30\3\2\2\2\32\35\3\2\2\2\33\31\3\2\2\2\33\34\3"+
