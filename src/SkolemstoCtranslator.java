@@ -15,12 +15,14 @@ public class SkolemstoCtranslator {
         String truename = path[path.length-1];
 
         List<CArrayDecl> vars = new ArrayList<>();
+        List<CArrayDecl> inputs = new ArrayList<>();
         List<CArrayDecl> outputs = new ArrayList<>();
         List<CAssignment> equations = new ArrayList<>();
         List<CFunction> functions = new ArrayList<>();
         List<CFunctionCallExpr> funcalls = new ArrayList<>();
 
 
+//        int arraysize = scratch.skolems.size() + 1;
         int arraysize = scratch.skolems.size();
 
         SMTLibToCExprVisitor exprVisitor = new SMTLibToCExprVisitor();
@@ -33,6 +35,7 @@ public class SkolemstoCtranslator {
             String varid = keywordRename(truncate(var.id));
             CArrayDecl variable =
                     new CArrayDecl(new CIdExpr(varid),typeVisitor.visit(vartype), arraysize);
+            inputs.add(variable);
             vars.add(variable);
         }
 
@@ -61,7 +64,7 @@ public class SkolemstoCtranslator {
             i++;
         }
         if (arraysize > 1) {
-            CMoveHistory mh = addMoveHistory(arraysize, outputs);
+            CMoveHistory mh = addMoveHistory(arraysize-1,inputs, outputs);
             functions.add(mh);
             functions.add(addUpdateFunction(init, funcalls, mh));
             return new CProgram(init, truename, vars, functions);
@@ -89,6 +92,7 @@ public class SkolemstoCtranslator {
         List<CFunction> functions = new ArrayList<>();
 
 
+//        int arraysize = scratch.skolems.size()+1;
         int arraysize = scratch.skolems.size();
 
         SMTLibToCTypeVisitor typeVisitor = new SMTLibToCTypeVisitor();
@@ -411,14 +415,19 @@ public class SkolemstoCtranslator {
         }
     }
 
-    private static CMoveHistory addMoveHistory(int k, List<CArrayDecl> outs){
+    private static CMoveHistory addMoveHistory(int k,List<CArrayDecl> ins, List<CArrayDecl> outs){
         List<CExpr> updates= new ArrayList<>();
         CVarDecl iter = new CVarDecl("iterator", CNamedType.INT);
         CIdExpr iterid = new CIdExpr(iter.id);
-        CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(k)));
-        CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.GREATER, new CIntExpr(BigInteger.valueOf(0)));
-        CUnaryExpr incr = new CUnaryExpr(CUnaryOp.MINUSMINUS, iterid);
-        CBinaryExpr next = new CBinaryExpr(iterid, CBinaryOp.MINUS, new CIntExpr(BigInteger.valueOf(1)));
+//        CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(k)));
+        CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(0)));
+        CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.LESS, new CIntExpr(BigInteger.valueOf(k)));
+        CUnaryExpr incr = new CUnaryExpr(CUnaryOp.PLUSPLUS, iterid);
+        CBinaryExpr next = new CBinaryExpr(iterid, CBinaryOp.PLUS, new CIntExpr(BigInteger.valueOf(1)));
+        for (CArrayDecl in : ins) {
+            updates.add(new CArrayUpdateExpr(in.id,
+                    iterid, new CArrayAccessExpr(in.id, next)));
+        }
         for (CArrayDecl out : outs) {
             updates.add(new CArrayUpdateExpr(out.id,
                     iterid, new CArrayAccessExpr(out.id, next)));

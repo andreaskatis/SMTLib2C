@@ -646,6 +646,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                             converted.add(new AssignExpr(binexp.left, binexp.right));
                         }
                     }
+                    //i might need to add a case for assingments where the left expression is a cast
                 } else {
                     converted.addAll(convertAssignmentinExpr(binexp.left, insprops));
                     converted.addAll(convertAssignmentinExpr(binexp.right, insprops));
