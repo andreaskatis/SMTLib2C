@@ -3,25 +3,7 @@ package visitors;
 import java.util.Iterator;
 import java.util.List;
 
-import skolem.AssignExpr;
-import skolem.BinaryExpr;
-import skolem.BoolExpr;
-import skolem.CastExpr;
-import skolem.Equation;
-import skolem.ExitExpr;
-import skolem.Expr;
-import skolem.IdExpr;
-import skolem.IfThenElseExpr;
-import skolem.IntExpr;
-import skolem.NamedType;
-import skolem.RealExpr;
-import skolem.Scratch;
-import skolem.Skolem;
-import skolem.TernaryExpr;
-import skolem.Type;
-import skolem.UnaryExpr;
-import skolem.UnaryOp;
-import skolem.VarDecl;
+import skolem.*;
 
 public class SMTLibPrettyPrintVisitor implements AstVisitor<Void, Void>, TypeVisitor<Void> {
 
@@ -94,6 +76,12 @@ public class SMTLibPrettyPrintVisitor implements AstVisitor<Void, Void>, TypeVis
     	return null;
     }
 
+    @Override
+    public Void visit(AssertExpr e) {
+        write("assert(" + e.expr + ")");
+        return null;
+    }
+
 	@Override
 	public Void visit(AssignExpr e) {
 		write("(");
@@ -130,6 +118,17 @@ public class SMTLibPrettyPrintVisitor implements AstVisitor<Void, Void>, TypeVis
 		write(")");
 		return null;
 	}
+
+    @Override
+    public Void visit(FunAppExpr e) {
+        expr(e.funNameExpr);
+        write("(");
+        for (Expr funArg : e.funArgExprs) {
+            expr(funArg);
+        }
+        write(")");
+        return null;
+    }
 
 	private String getCastFunction(Type type) {
 		if (type == NamedType.REAL) {

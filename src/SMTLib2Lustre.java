@@ -1,3 +1,8 @@
+import com.sun.org.apache.bcel.internal.generic.ARRAYLENGTH;
+import com.sun.org.apache.regexp.internal.RE;
+import jkind.lustre.*;
+import jkind.lustre.NamedType;
+import jkind.lustre.VarDecl;
 import skolem.*;
 import visitors.JKindToJSynIds;
 import visitors.SMTLibToLustreVisitor;
@@ -7,13 +12,16 @@ import jkind.slicing.LustreSlicer;
 import jkind.translation.RemoveEnumTypes;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.jar.Attributes;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class SMTLib2Lustre {
 	
 	public static boolean debug = false;
-	
+
     public static void main(String[] args) {
         try {
             SMTLib2LustreSettings settings = SMTLib2LustreArgumentParser.parse(args);
@@ -28,7 +36,7 @@ public class SMTLib2Lustre {
             }
             
             jkind.lustre.Program program = createMainNode(impl, contractNodeOpt);
-            
+
             printToFile(truename+".new.lus", program.toString());
 
         } catch (IOException e) {
@@ -103,6 +111,7 @@ public class SMTLib2Lustre {
 			contractNodeOpt.outputs.stream().forEach(i -> { ceb.addLhs(i.id); });
 			nb.addEquation(ceb.build());
 			nb.addAssertion(new jkind.lustre.IdExpr(ALL_ASSERTS));
+            nb.addAssertions(impl.getMainNode().assertions);
 		}
 
 		jkind.lustre.Node mainNode = nb.build();
@@ -115,6 +124,23 @@ public class SMTLib2Lustre {
 		}
 		pb.addNode(mainNode);
 		pb.setMain(mainNode.id);
+
+
+        List<jkind.lustre.VarDecl> rngArgs = new ArrayList<>();
+        rngArgs.add(new jkind.lustre.VarDecl("lflag", jkind.lustre.NamedType.BOOL));
+        rngArgs.add(new jkind.lustre.VarDecl("uflag", jkind.lustre.NamedType.BOOL));
+        jkind.lustre.Type rngType;
+        for (jkind.lustre.VarDecl out : implMain.outputs) {
+            if (out.id.startsWith("_aeval_tmp_rand")) {
+                rngType = out.type;
+                rngArgs.add(new jkind.lustre.VarDecl("lbound", rngType));
+                rngArgs.add(new jkind.lustre.VarDecl("ubound", rngType));
+                pb.addFunction(new Function("generateRandomValue", rngArgs,
+                        new jkind.lustre.VarDecl("randomValue", rngType)));
+                break;
+            }
+        }
+
 		jkind.lustre.Program lustre = pb.build();
 		
 		if (debug) {
@@ -134,11 +160,18 @@ public class SMTLib2Lustre {
 
     	try {
 	    	jkind.lustre.Program program = jkind.Main.parseLustre(filename);
-			jkind.lustre.Node main = jkind.translation.Translate.translate(program);
-			main = RemoveEnumTypes.node(main);
-			DependencyMap dependencyMap = new DependencyMap(main, main.properties);
-			main = LustreSlicer.slice(main, dependencyMap);
-			main = JKindToJSynIds.node(main);
+            jkind.lustre.Program translatedProgram = jkind.translation.Translate.translate(program);
+//			jkind.lustre.Node main = jkind.translation.Translate.translate(program);
+//			main = RemoveEnumTypes.node(main);
+            translatedProgram = RemoveEnumTypes.program(translatedProgram);
+            jkind.lustre.Node main = translatedProgram.getMainNode();
+            DependencyMap dependencyMap = new DependencyMap(main, main.properties, translatedProgram.functions);
+            main = LustreSlicer.slice(main, dependencyMap);
+            main = JKindToJSynIds.node(main);
+//
+//            DependencyMap dependencyMap = new DependencyMap(main, main.properties);
+//			main = LustreSlicer.slice(main, dependencyMap);
+//			main = JKindToJSynIds.node(main);
 			
 			jkind.lustre.builders.NodeBuilder nb = new jkind.lustre.builders.NodeBuilder("__CONTRACT");
 			nb.addInputs(main.inputs);
@@ -167,7 +200,7 @@ public class SMTLib2Lustre {
 			printToFile(filename + ".contract.lus.kind", contract.toString());
 						
 			return contract;
-    	} catch (IOException e) {
+    	} catch (Exception e) {
     		e.printStackTrace();
     		System.exit(0);
         	return null;
@@ -195,7 +228,6 @@ public class SMTLib2Lustre {
         }
         SMTLibToLustreVisitor slv = new SMTLibToLustreVisitor();
         jkind.lustre.Program program = slv.scratch(lifted);
-
         if (debug) {// MWW TEMPORARY
 			System.out.println("Main program: ");
 			System.out.println(program.toString());

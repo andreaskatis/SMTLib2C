@@ -10,8 +10,8 @@ public class SMTLib2C {
             Scratch scratch = Main.parseSkolems(settings.filename);
                         
             String truename = settings.filename.substring(0, settings.filename.lastIndexOf("_"));
-            CHeader header = SkolemstoCtranslator.addHeader(scratch, truename);
-            CProgram program = SkolemstoCtranslator.translate(scratch, truename);
+            CHeader header = SkolemstoCtranslator.addHeader(scratch, truename, settings.rngvalues);
+            CProgram program = SkolemstoCtranslator.translate(scratch, truename, settings.rngvalues);
 
             PrintWriter writerHeader = new PrintWriter(new FileOutputStream(truename+".h"));
             writerHeader.print(header.toString());

@@ -7,9 +7,17 @@ import java.util.List;
 //Class to handle function calls inside other expressions
 public class CFunctionCall extends CExpr {
     public final String name;
+    public final List<CExpr> funArgExprs;
+
+    public CFunctionCall(String name, List<CExpr> funArgExprs) {
+        this.name = name;
+        this.funArgExprs = funArgExprs;
+    }
+
 
     public CFunctionCall(String name) {
         this.name = name;
+        this.funArgExprs = null;
     }
 
     @Override

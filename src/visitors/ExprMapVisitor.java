@@ -6,18 +6,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import skolem.AssignExpr;
-import skolem.BinaryExpr;
-import skolem.BoolExpr;
-import skolem.CastExpr;
-import skolem.ExitExpr;
-import skolem.Expr;
-import skolem.IdExpr;
-import skolem.IfThenElseExpr;
-import skolem.IntExpr;
-import skolem.RealExpr;
-import skolem.TernaryExpr;
-import skolem.UnaryExpr;
+import skolem.*;
 
 public class ExprMapVisitor implements ExprVisitor<Expr> {
 
@@ -33,7 +22,9 @@ public class ExprMapVisitor implements ExprVisitor<Expr> {
 	public List<Expr> exprList(List<Expr> el) {
 		return map(e -> expr(e), el); 
 	}
-	
+
+    @Override
+    public Expr visit(AssertExpr e) { return new AssertExpr(e.location, e.expr);}
 	@Override
 	public Expr visit(AssignExpr e) {
 		return new AssignExpr(e.location, expr(e.lhs), expr(e.expr));
@@ -54,6 +45,8 @@ public class ExprMapVisitor implements ExprVisitor<Expr> {
 		return new CastExpr(e.location, e.type, expr(e.expr));
 	}
 
+    @Override
+    public Expr visit(FunAppExpr e) { return new FunAppExpr(e.location, e.funNameExpr, e.funArgExprs); }
 	@Override
 	public Expr visit(IdExpr e) {
 		return new IdExpr(e.location, e.id);

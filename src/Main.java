@@ -64,7 +64,6 @@ public class Main {
         if (parser.getNumberOfSyntaxErrors() > 0) {
             System.exit(ExitCodes.PARSE_ERROR);
         }
-
         return new SMTLIB2ToAstVisitor().scratch(scratch);
     }
 }

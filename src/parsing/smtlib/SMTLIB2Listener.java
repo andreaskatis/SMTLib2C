@@ -1,5 +1,4 @@
-// Generated from SMTLIB2.g4 by ANTLR 4.4
-package parsing.smtlib;
+package parsing.smtlib;// Generated from /home/dr41k/git/SMTLib2C/src/parsing/smtlib/SMTLIB2.g4 by ANTLR 4.4
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
@@ -175,18 +174,6 @@ public interface SMTLIB2Listener extends ParseTreeListener {
 	 */
 	void exitBoolType(@NotNull SMTLIB2Parser.BoolTypeContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code parenExpr}
-	 * labeled alternative in {@link SMTLIB2Parser#expr}.
-	 * @param ctx the parse tree
-	 */
-	void enterParenExpr(@NotNull SMTLIB2Parser.ParenExprContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code parenExpr}
-	 * labeled alternative in {@link SMTLIB2Parser#expr}.
-	 * @param ctx the parse tree
-	 */
-	void exitParenExpr(@NotNull SMTLIB2Parser.ParenExprContext ctx);
-	/**
 	 * Enter a parse tree produced by the {@code negateExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.
 	 * @param ctx the parse tree
@@ -232,6 +219,18 @@ public interface SMTLIB2Listener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitBoolExpr(@NotNull SMTLIB2Parser.BoolExprContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code funAppExpr}
+	 * labeled alternative in {@link SMTLIB2Parser#expr}.
+	 * @param ctx the parse tree
+	 */
+	void enterFunAppExpr(@NotNull SMTLIB2Parser.FunAppExprContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code funAppExpr}
+	 * labeled alternative in {@link SMTLIB2Parser#expr}.
+	 * @param ctx the parse tree
+	 */
+	void exitFunAppExpr(@NotNull SMTLIB2Parser.FunAppExprContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link SMTLIB2Parser#properties}.
 	 * @param ctx the parse tree

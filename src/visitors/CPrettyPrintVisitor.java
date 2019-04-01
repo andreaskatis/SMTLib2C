@@ -30,6 +30,8 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 	@Override
 	public Void visit(CProgram program) {
 		write("#include \""+program.filename+".h\"");
+        newline();
+        write("#include <assert.h>");
 		newline();
 		newline();
 		if (program.init != null) {
@@ -50,7 +52,7 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		newline();
 		write("#include <stdlib.h>");
 		newline();
-		newline();
+        newline();
 		externDecls(header.ins);
 		newline();
 		externDecls(header.outs);
@@ -233,6 +235,26 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		return null;
 	}
 
+    @Override
+    public Void visit(CRNGFunction e) {
+        write(e.type + " " + e.name + "(");
+        int numArgs = e.numOfArgs - 4;
+        if (numArgs >= 0) {
+            for (int i = 0; i < numArgs - 1; i++) {
+                write(e.type + " " + "excl" + i + ", ");
+            }
+            write(e.type + " " + "excl" + numArgs + ", ");
+        }
+        write(CNamedType.BOOL + " " + "lflag, ");
+        write(CNamedType.BOOL + " " + "uflag, ");
+        write(e.type + " " + "lbound, ");
+        write(e.type + " " + "ubound");
+        write(");");
+        newline();
+
+        return null;
+    }
+
 	@Override
 	public Void visit(LustreCHarnessMain e) {
 		write("int "+e.main+"()");
@@ -291,6 +313,15 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		e.accept(this);
 		return null;
 	}
+
+    @Override
+    public Void visit(CAssertExpr assertionExpr) {
+        write("assert(");
+        expr(assertionExpr.expr);
+        write(");");
+        newline();
+        return null;
+    }
 
 	@Override
 	public Void visit(CAssignment equation) {
@@ -504,7 +535,17 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 
 	@Override
 	public Void visit(CFunctionCall e) {
-		write(e.name+"()");
+		write(e.name);
+        write("(");
+        if (e.funArgExprs != null) {
+            for (int i = 0; i < e.funArgExprs.size(); i++) {
+                expr(e.funArgExprs.get(i));
+                if (i < e.funArgExprs.size() - 1) {
+                    write(", ");
+                }
+            }
+        }
+        write(")");
 		return null;
 	}
 

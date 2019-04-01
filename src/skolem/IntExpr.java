@@ -12,6 +12,8 @@ public class IntExpr extends Expr {
         this.value = value;
     }
 
+    public IntExpr(BigInteger value) { this(Location.NULL, value);}
+
     
     @Override
 	public int hashCode() {

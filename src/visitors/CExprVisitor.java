@@ -3,6 +3,7 @@ package visitors;
 import ast.*;
 
 public interface CExprVisitor<T> {
+    T visit(CAssertExpr e);
 	T visit(CAssignment e);
 	T visit(CArrayAccessExpr e);
 	T visit(CArrayDecl e);
@@ -27,5 +28,6 @@ public interface CExprVisitor<T> {
 	T visit(CTernaryExpr e);
 	T visit(CUnaryExpr e);
 	T visit(CUpdateFunction e);
+    T visit(CRNGFunction e);
 	T visit(LustreCHarnessMain e);
 }

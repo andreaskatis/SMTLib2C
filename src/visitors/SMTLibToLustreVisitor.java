@@ -1,8 +1,21 @@
 package visitors;
 
 import ast.*;
+import jkind.lustre.*;
 import jkind.lustre.Ast;
 import skolem.*;
+import skolem.BinaryExpr;
+import skolem.BoolExpr;
+import skolem.CastExpr;
+import skolem.Equation;
+import skolem.Expr;
+import skolem.IdExpr;
+import skolem.IfThenElseExpr;
+import skolem.IntExpr;
+import skolem.NamedType;
+import skolem.RealExpr;
+import skolem.UnaryExpr;
+import skolem.VarDecl;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -25,6 +38,11 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
         }
 
         @Override
+        public jkind.lustre.Expr visit(AssertExpr e) {
+            return new jkind.lustre.BoolExpr(true);
+        }
+
+        @Override
         public jkind.lustre.Expr visit(AssignExpr e) {
         	throw new Error("Error: encountered AssignExpr [" + e + "] during translation to Lustre");
         }
@@ -38,6 +56,15 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
         public jkind.lustre.Expr visit(CastExpr e) {
             SMTLibToLustreTypeVisitor typeVisitor = new SMTLibToLustreTypeVisitor();
             return new jkind.lustre.CastExpr(e.type.accept(typeVisitor), e.expr.accept(this));
+        }
+
+        @Override
+        public jkind.lustre.Expr visit(FunAppExpr e) {
+            List <jkind.lustre.Expr> funArgExprs = new ArrayList<>();
+            for (Expr funArg : e.funArgExprs) {
+                funArgExprs.add(funArg.accept(this));
+            }
+            return new jkind.lustre.FunctionCallExpr(e.funNameExpr.id, funArgExprs);
         }
 
 
@@ -79,8 +106,8 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
             }
             
             assert(thenbd.size() == 1);
-            assert(elsebd.size() == 1); 
-            
+            assert(elsebd.size() == 1);
+
             return new jkind.lustre.IfThenElseExpr(cond, thenbd.get(0), elsebd.get(0));
         }
 
@@ -138,15 +165,22 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 		}
 
 		List<jkind.lustre.VarDecl> inputs; 
-		List<jkind.lustre.VarDecl> outputs; 
-		
+		List<jkind.lustre.VarDecl> outputs;
+
 		@Override
 		public Ast visit(VarDecl varDecl) {
             SMTLibToLustreTypeVisitor typeVisitor = new SMTLibToLustreTypeVisitor();
 			return new jkind.lustre.VarDecl(varDecl.id, varDecl.type.accept(typeVisitor));
 		}
+
+//        public jkind.lustre.Expr assertExpr(Expr e) {
+//            assert (e instanceof AssertExpr);
+//            AssertExpr ae = (AssertExpr) e;
+//            return ae.expr.accept(this);
+//        }
 		
 		public jkind.lustre.Equation assignExpr(Expr e) {
+            //Skolems may now contain assignments and assertions
 			assert(e instanceof AssignExpr);
 			AssignExpr ae = (AssignExpr)e;
 			
@@ -183,10 +217,23 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 			nb.addInputs(inputs);
 			nb.addOutputs(outputs);
 			nb.addLocal(buildInitVarDecl());
-			List<jkind.lustre.Equation> eqs = 
-					s.body.stream().map(e -> assignExpr(e)).collect(Collectors.toList());
-			nb.addEquations(eqs);
-			nb.addEquation(buildInitEquation());
+			List<jkind.lustre.Equation> eqs = new ArrayList<>();
+//					s.body.stream().map(e -> assignExpr(e)).collect(Collectors.toList());
+
+//            List<jkind.lustre.Expr> assertionExprs =
+//                    s.body.stream().map(e -> assertExpr(e)).collect(Collectors.toList());
+            for (Expr bexpr : s.body) {
+                if (bexpr instanceof AssertExpr) {
+                    AssertExpr assertionExpr = (AssertExpr) bexpr;
+                    nb.addAssertion(assertionExpr.expr.accept(this));
+                } else if (bexpr instanceof AssignExpr) {
+                    AssignExpr aexpr = (AssignExpr) bexpr;
+                    eqs.add(assignExpr(aexpr));
+                }
+            }
+            nb.addEquations(eqs);
+            nb.addEquation(buildInitEquation());
+//            nb.addAssertions(assertionExprs);
 			return nb.build();
 		}
 				
@@ -212,7 +259,27 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
 			// for now, only compile single node programs.
 			assert(nodes.size() == 1);
 			builder.addNodes(nodes);
+//            Node oldnode = nodes.get(0);
+//            System.out.println(assertions);
+//            builder.addNode(new Node(oldnode.id, oldnode.inputs, oldnode.outputs, oldnode.locals,
+//                    oldnode.equations, oldnode.properties, assertions, oldnode.realizabilityInputs,
+//                    oldnode.contract, oldnode.ivc));
 			builder.setMain(nodes.get(0).id);
+
+            List<jkind.lustre.VarDecl> rngArgs = new ArrayList<>();
+            rngArgs.add(new jkind.lustre.VarDecl("lflag", jkind.lustre.NamedType.BOOL));
+            rngArgs.add(new jkind.lustre.VarDecl("uflag", jkind.lustre.NamedType.BOOL));
+            jkind.lustre.Type rngType;
+            for (jkind.lustre.VarDecl out : outputs) {
+                if (out.id.startsWith("_aeval_tmp_rand")) {
+                    rngType = out.type;
+                    rngArgs.add(new jkind.lustre.VarDecl("lbound", rngType));
+                    rngArgs.add(new jkind.lustre.VarDecl("ubound", rngType));
+                    builder.addFunction(new Function("generateRandomValue", rngArgs,
+                            new jkind.lustre.VarDecl("randomValue", rngType)));
+                    break;
+                }
+            }
 
 			return builder.build();
 		}

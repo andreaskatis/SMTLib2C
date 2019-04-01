@@ -1,5 +1,7 @@
 package parsing.smtlib;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
+import jkind.lustre.*;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 
@@ -13,8 +15,27 @@ import parsing.smtlib.SMTLIB2Parser.*;
 
 
 import skolem.*;
+import skolem.BinaryExpr;
+import skolem.BinaryOp;
+import skolem.BoolExpr;
+import skolem.CastExpr;
+import skolem.Equation;
+import skolem.Expr;
+import skolem.IdExpr;
+import skolem.IfThenElseExpr;
+import skolem.IntExpr;
+import skolem.Location;
+import skolem.NamedType;
+import skolem.RealExpr;
+import skolem.Type;
+import skolem.UnaryExpr;
+import skolem.UnaryOp;
+import skolem.VarDecl;
 
 public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
+
+    Map<String, List<Expr>> rngNames = new HashMap<>();
+    List<Expr> finalbody = new ArrayList<>();
 
     public Scratch scratch(ScratchContext ctx) {
         List<String> insprops = realizabilityInputs(ctx.inputs());
@@ -23,7 +44,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         insprops.addAll(properties(ctx.properties()));
         List<VarDecl> outputs = outputvars(skolemctx, insprops);
         List<Skolem> skolems = skolems(skolemctx, insprops);
-        return new Scratch(loc(ctx), inputs, outputs, skolems);
+        return new Scratch(loc(ctx), inputs, outputs, skolems, rngNames);
     }
 
     private List<String> realizabilityInputs(List<InputsContext> inputsctx) {
@@ -67,7 +88,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
 //                    names.add(id);
 //                }
                 if (inputs.contains(id) && !(names.contains(id))) {
-                    Type type = type(declare.type());
+                    Type type = type(declare.type().get(declare.type().size() -1));
                     //replacingSymbols should happen after receing the IR, to support multiple outputs
                     decls.add(new VarDecl(loc(declare), replaceSymbols(id), type));
                     names.add(id);
@@ -145,7 +166,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
 //                    names.add(id);
 //                }
                 if (!insprops.contains(id) && !(names.contains(id)) && !id.equals("%init")) {
-                    Type type = type(declare.type());
+                    Type type = type(declare.type().get(declare.type().size() - 1));
                     //replacingSymbols should happen after receing the IR, to support multiple outputs
                     decls.add(new VarDecl(loc(declare), replaceSymbols(id), type));
                     names.add(id);
@@ -207,15 +228,19 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         if (ctx.letexp() !=null) {
             fastlocals.putAll(fastlocals(ctx.letexp()));
             locals.addAll(locals(ctx.letexp()));
-            List<Equation> fastinlinedlocals = fastinlinelocals(locals, fastlocals);
+            System.out.println("fastlocals size : " + fastlocals.size());
+            System.out.println("locals size : " + locals.size());
+//            List<Equation> fastinlinedlocals = fastinlinelocals(locals, fastlocals);
 //            List<Equation> inlinedlocals = inlinelocals(locals, locals);
             List<Expr> body = body(ctx.letexp().body());
-            body = inlinelocalstoexprs(body, fastinlinedlocals);
+            body = inlinelocalstoexprs(body,locals);
+//            body = inlinelocalstoexprs(body, fastinlinedlocals);
 //            body = inlinelocalstoexprs(body, inlinedlocals);
             body = convertEqualitiesToAssignments(body, insprops);
             body = convertIfThenElsesToTernary(body);
             body = convertBooleanValuesToExitExprs(body);
             body = foldConstantsinExprs(body);
+            body = addRNGfromExprs(body);
             return new Skolem(loc(ctx), locals, body);
         } else {
             List<Expr> body = new ArrayList<>();
@@ -223,7 +248,134 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             body = convertEqualitiesToAssignments(body, insprops);
             body = convertIfThenElsesToTernary(body);
             body = convertBooleanValuesToExitExprs(body);
+            body = addRNGfromExprs(body);
             return new Skolem(loc(ctx), locals, body);
+        }
+    }
+
+    private List<Expr> addRNGfromExprs(List<Expr> tempbody) {
+        List<Expr> rngReplacedBody = new ArrayList<>();
+        for (Expr expr : tempbody) {
+            if (expr instanceof IfThenElseExpr) {
+                IfThenElseExpr iteexpr = (IfThenElseExpr) expr;
+//                List<Expr> newThenExprs = addRNGfromExprs(iteexpr.thenExpr);
+                List<Expr> newThenExprs = new ArrayList<>();
+                for (Expr thenExpr : iteexpr.thenExpr) {
+                    newThenExprs.add(addRNGfromExpr(thenExpr));
+                }
+//                List<Expr> newElseExprs = addRNGfromExprs(iteexpr.elseExpr);
+                List<Expr> newElseExprs = new ArrayList<>();
+                for (Expr elseExpr : iteexpr.elseExpr) {
+                    newElseExprs.add(addRNGfromExpr(elseExpr));
+                }
+
+                finalbody.add((new IfThenElseExpr(iteexpr.cond, newThenExprs, newElseExprs)));
+            } else {
+                finalbody.add(addRNGfromExpr(expr));
+            }
+        }
+        return finalbody;
+    }
+
+    private Expr addRNGfromExpr(Expr expr) {
+        if (expr instanceof AssignExpr) {
+            AssignExpr aExpr = (AssignExpr) expr;
+            return new AssignExpr(aExpr.lhs, addRNGfromExpr(aExpr.expr));
+        } else if (expr instanceof BinaryExpr) {
+            BinaryExpr binExpr = (BinaryExpr) expr;
+            return new BinaryExpr(addRNGfromExpr(binExpr.left), binExpr.op, addRNGfromExpr(binExpr.right));
+        } else if (expr instanceof FunAppExpr) {
+            FunAppExpr funExpr = (FunAppExpr) expr;
+            List<Expr> updatedFunArgs = new ArrayList<>();
+            for (Expr arg : funExpr.funArgExprs) {
+                updatedFunArgs.add(addRNGfromExpr(arg));
+            }
+            if (!rngNames.containsKey(funExpr.funNameExpr.id)) {
+                rngNames.put(funExpr.funNameExpr.id, updatedFunArgs);
+                if (funExpr.funNameExpr.id.contains("randneq")) {
+                    finalbody.add(new AssignExpr(funExpr.funNameExpr,
+                            new FunAppExpr(new IdExpr("generateRandomValueExcl"), updatedFunArgs)));
+                } else {
+                    finalbody.add(new AssignExpr(funExpr.funNameExpr,
+                            new FunAppExpr(new IdExpr("generateRandomValue"), updatedFunArgs)));
+                }
+                Expr assertExpr = addAssertionExpr(funExpr.funNameExpr, updatedFunArgs);
+                if (assertExpr != null) {
+                    finalbody.add(assertExpr);
+                }
+            }
+            return new IdExpr(funExpr.funNameExpr.id);
+        } else if (expr instanceof IfThenElseExpr) {
+            IfThenElseExpr iteexpr = (IfThenElseExpr) expr;
+            List<Expr> newThenExprs = new ArrayList<>();
+            List<Expr> newElseExprs = new ArrayList<>();
+            for (Expr texpr : iteexpr.thenExpr) {
+                newThenExprs.add(addRNGfromExpr(texpr));
+            }
+            for (Expr eexpr : iteexpr.elseExpr) {
+                newElseExprs.add(addRNGfromExpr(eexpr));
+            }
+            return new IfThenElseExpr(addRNGfromExpr(iteexpr.cond), newThenExprs, newElseExprs);
+        } else if (expr instanceof UnaryExpr) {
+            UnaryExpr uexpr = (UnaryExpr) expr;
+            return new UnaryExpr(uexpr.op, addRNGfromExpr(uexpr.expr));
+        } else {
+                return expr;
+        }
+    }
+
+    private Expr addAssertionExpr(IdExpr idexpr, List<Expr> funArgs) {
+//        List<Expr> updatedbody = body;
+        if (funArgs.get(0) instanceof BoolExpr && funArgs.get(1) instanceof BoolExpr) {
+            BoolExpr lflag = (BoolExpr) funArgs.get(0);
+            BoolExpr uflag = (BoolExpr) funArgs.get(1);
+            BinaryExpr lboundExpr;
+            BinaryExpr uboundExpr;
+            if (lflag.value || uflag.value) {
+                if (lflag.value) {
+                    lboundExpr = new BinaryExpr(funArgs.get(2), BinaryOp.LESSEQUAL, idexpr);
+                } else {
+                    lboundExpr = new BinaryExpr(funArgs.get(2), BinaryOp.LESS, idexpr);
+                }
+                if (uflag.value) {
+                    uboundExpr = new BinaryExpr(idexpr, BinaryOp.LESSEQUAL, funArgs.get(3));
+                } else {
+                    uboundExpr = new BinaryExpr(idexpr, BinaryOp.LESS, funArgs.get(3));
+                }
+//                updatedbody.add(new AssertExpr(new BinaryExpr(lboundExpr, BinaryOp.AND, uboundExpr)));
+                return new AssertExpr(new BinaryExpr(lboundExpr, BinaryOp.AND, uboundExpr));
+            } else {
+                if (funArgs.get(2) instanceof IntExpr && funArgs.get(3) instanceof IntExpr) {
+                    IntExpr lint = (IntExpr) funArgs.get(2);
+                    IntExpr uint = (IntExpr) funArgs.get(3);
+                    if (lint.value.intValue() == 0 && uint.value.equals(lint.value)) {
+                        return new AssertExpr(new BinaryExpr(new IntExpr(BigInteger.valueOf(0)),
+                                BinaryOp.LESS, idexpr));
+                    } else {
+                        lboundExpr = new BinaryExpr(lint, BinaryOp.LESS, idexpr);
+                        uboundExpr = new BinaryExpr(idexpr, BinaryOp.LESS, uint);
+                        return new AssertExpr(new BinaryExpr(lboundExpr, BinaryOp.AND, uboundExpr));
+                    }
+                } else if (funArgs.get(2) instanceof RealExpr && funArgs.get(3) instanceof RealExpr) {
+                    RealExpr lreal = (RealExpr) funArgs.get(2);
+                    RealExpr ureal = (RealExpr) funArgs.get(3);
+
+                    if (lreal.value.intValue() == 0 && ureal.value.equals(lreal.value)) {
+                        return new AssertExpr(new BinaryExpr(new RealExpr(BigDecimal.valueOf(0)),
+                                BinaryOp.LESS, idexpr));
+                    } else {
+                        lboundExpr = new BinaryExpr(lreal, BinaryOp.LESS, idexpr);
+                        uboundExpr = new BinaryExpr(idexpr, BinaryOp.LESS, ureal);
+                        return new AssertExpr(new BinaryExpr(lboundExpr, BinaryOp.AND, uboundExpr));
+                    }
+                } else {
+                    lboundExpr = new BinaryExpr(funArgs.get(2), BinaryOp.LESS, idexpr);
+                    uboundExpr = new BinaryExpr(idexpr, BinaryOp.LESS, funArgs.get(3));
+                    return new AssertExpr(new BinaryExpr(lboundExpr, BinaryOp.AND, uboundExpr));
+                }
+            }
+        } else {
+            return null;
         }
     }
 
@@ -679,6 +831,10 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 converted.addAll(convertAssignmentinExpr(binexp.left, insprops));
                 converted.addAll(convertAssignmentinExpr(binexp.right, insprops));
             }
+        }  else if (expr instanceof IfThenElseExpr) {
+            IfThenElseExpr itexpr = (IfThenElseExpr) expr;
+            converted.add(new IfThenElseExpr(itexpr.cond, convertAssignmentsinExprs(itexpr.thenExpr, insprops),
+                    convertAssignmentsinExprs(itexpr.elseExpr, insprops)));
         }
         return converted;
     }
@@ -873,45 +1029,45 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         return locs;
     }
 
-    private List<Expr> splitassignments(ExprContext ctx) {
-        List<Expr> assignments = new ArrayList<>();
-        if (ctx instanceof ParenExprContext) {
-            ParenExprContext pctx = (ParenExprContext) ctx;
-            ExprContext epctx = pctx.expr();
-            if (epctx instanceof BinaryExprContext) {
-                BinaryExprContext bpctx = (BinaryExprContext) epctx;
-                for (ExprContext ctxs : bpctx.expr()) {
-                    assignments.add(expr(ctxs));
-                }
-            }
-        }
-        return assignments;
-    }
+//    private List<Expr> splitassignments(ExprContext ctx) {
+//        List<Expr> assignments = new ArrayList<>();
+//        if (ctx instanceof ParenExprContext) {
+//            ParenExprContext pctx = (ParenExprContext) ctx;
+//            ExprContext epctx = pctx.expr();
+//            if (epctx instanceof BinaryExprContext) {
+//                BinaryExprContext bpctx = (BinaryExprContext) epctx;
+//                for (ExprContext ctxs : bpctx.expr()) {
+//                    assignments.add(expr(ctxs));
+//                }
+//            }
+//        }
+//        return assignments;
+//    }
 
-    private boolean isAssignmentBlock(LocalContext locctx) {
-        ExprContext elocctx = locctx.expr();
-        if (elocctx instanceof ParenExprContext) {
-            ParenExprContext pctx = (ParenExprContext) elocctx;
-            if (pctx.expr() instanceof BinaryExprContext) {
-                BinaryExprContext bpctx = (BinaryExprContext) pctx.expr();
-                if (bpctx.op.getText().equals("and")) {
-                    for (ExprContext ectx : bpctx.expr()) {
-                        if (ectx instanceof ParenExprContext && ((ParenExprContext) ectx).expr() instanceof BinaryExprContext) {
-                            ParenExprContext ppctx = (ParenExprContext) ectx;
-                            BinaryExprContext bbpctx = (BinaryExprContext) ppctx.expr();
-                            if (bbpctx.op.getText().equals("=")) {
-                                continue;
-                            } else {
-                                return false;
-                            }
-                        }
-                    }
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+//    private boolean isAssignmentBlock(LocalContext locctx) {
+//        ExprContext elocctx = locctx.expr();
+//        if (elocctx instanceof ParenExprContext) {
+//            ParenExprContext pctx = (ParenExprContext) elocctx;
+//            if (pctx.expr() instanceof BinaryExprContext) {
+//                BinaryExprContext bpctx = (BinaryExprContext) pctx.expr();
+//                if (bpctx.op.getText().equals("and")) {
+//                    for (ExprContext ectx : bpctx.expr()) {
+//                        if (ectx instanceof ParenExprContext && ((ParenExprContext) ectx).expr() instanceof BinaryExprContext) {
+//                            ParenExprContext ppctx = (ParenExprContext) ectx;
+//                            BinaryExprContext bbpctx = (BinaryExprContext) ppctx.expr();
+//                            if (bbpctx.op.getText().equals("=")) {
+//                                continue;
+//                            } else {
+//                                return false;
+//                            }
+//                        }
+//                    }
+//                    return true;
+//                }
+//            }
+//        }
+//        return false;
+//    }
 
     private List<Expr> body(BodyContext letCtx) {
         List<Expr> assignments = new ArrayList<>();
@@ -1025,32 +1181,47 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         }
     }
 
+//    @Override
+//    public Expr visitParenExpr(ParenExprContext ctx) {
+//        return (Expr) ctx.expr().accept(this);
+//    }
+
     @Override
-    public Expr visitParenExpr(ParenExprContext ctx) {
-        return (Expr) ctx.expr().accept(this);
+    public Expr visitFunAppExpr(FunAppExprContext ctx) {
+        List<Expr> args = new ArrayList<>();
+        for (ExprContext ectx : ctx.expr()) {
+            args.add(expr(ectx));
+        }
+        return new FunAppExpr(loc(ctx), new IdExpr(ctx.ID().getText()), args);
     }
 
-
+//
+//    @Override
+//    public Expr visitIfThenElseExpr(IfThenElseExprContext ctx) {
     @Override
-    public Expr visitIfThenElseExpr(IfThenElseExprContext ctx) {
+    public Expr visitIfThenElseExpr(IfThenElseExprContext pctx) {
         List<Expr> thenbd = new ArrayList<>();
         List<Expr> elsebd = new ArrayList<>();
-        ExprContext thenectx = ctx.expr(1);
-        ExprContext elseectx = ctx.expr(2);
-        if (thenectx instanceof ParenExprContext) {
-            ParenExprContext pctx = (ParenExprContext) thenectx;
-            if (pctx.expr() instanceof BinaryExprContext) {
-                BinaryExprContext tbctx = (BinaryExprContext) pctx.expr();
-                if (tbctx.op.getText().equals("and") && tbctx.expr().get(0) instanceof ParenExprContext) {
-                    ParenExprContext ppctx = (ParenExprContext) tbctx.expr().get(0);
-                    if (ppctx.expr() instanceof BinaryExprContext) {
-                        BinaryExprContext bctx = (BinaryExprContext) ppctx.expr();
-                        if(bctx.op.getText().equals("=")) {
-                            for (ExprContext ctxs : tbctx.expr()) {
-                                thenbd.add(expr(ctxs));
-                            }
-                        } else {
-                            thenbd.add(expr(tbctx));
+        ExprContext thenectx = pctx.expr(1);
+        ExprContext elseectx = pctx.expr(2);
+//        ExprContext thenectx = ctx.expr(1);
+//        ExprContext elseectx = ctx.expr(2);
+//        if (thenectx instanceof ParenExprContext) {
+//            ParenExprContext pctx = (ParenExprContext) thenectx;
+//            if (pctx.expr() instanceof BinaryExprContext) {
+        if (thenectx instanceof BinaryExprContext) {
+//                BinaryExprContext tbctx = (BinaryExprContext) pctx.expr();
+            BinaryExprContext tbctx = (BinaryExprContext) thenectx;
+//                if (tbctx.op.getText().equals("and") && tbctx.expr().get(0) instanceof ParenExprContext) {
+            if (tbctx.op.getText().equals("and")) {
+//                ParenExprContext ppctx = (ParenExprContext) tbctx.expr().get(0);
+//                    if (ppctx.expr() instanceof BinaryExprContext) {
+//                        BinaryExprContext bctx = (BinaryExprContext) ppctx.expr();
+                if (tbctx.expr().get(0) instanceof BinaryExprContext) {
+                    BinaryExprContext bctx = (BinaryExprContext) tbctx.expr().get(0);
+                    if(bctx.op.getText().equals("=")) {
+                        for (ExprContext ctxs : tbctx.expr()) {
+                            thenbd.add(expr(ctxs));
                         }
                     } else {
                         thenbd.add(expr(tbctx));
@@ -1059,28 +1230,34 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                     thenbd.add(expr(tbctx));
                 }
             } else {
-                thenbd.add(expr(pctx.expr()));
+                thenbd.add(expr(tbctx));
             }
-//        } else if (thenectx instanceof BoolExprContext) {
-//            thenbd.add(new ExitExpr());
-        }   else {
+        } else {
+//            thenbd.add(expr(pctx.expr()));
             thenbd.add(expr(thenectx));
         }
+//        } else if (thenectx instanceof BoolExprContext) {
+//            thenbd.add(new ExitExpr());
+//        }   else {
+//            thenbd.add(expr(thenectx));
+//        }
 
-        if (elseectx instanceof ParenExprContext) {
-            ParenExprContext pctx = (ParenExprContext) elseectx;
-            if (pctx.expr() instanceof BinaryExprContext) {
-                BinaryExprContext tbctx = (BinaryExprContext) pctx.expr();
-                if (tbctx.op.getText().equals("and") && tbctx.expr().get(0) instanceof ParenExprContext) {
-                    ParenExprContext ppctx = (ParenExprContext) tbctx.expr().get(0);
-                    if (ppctx.expr() instanceof BinaryExprContext) {
-                        BinaryExprContext bctx = (BinaryExprContext) ppctx.expr();
-                        if(bctx.op.getText().equals("=")) {
-                            for (ExprContext ctxs : tbctx.expr()) {
-                                elsebd.add(expr(ctxs));
-                            }
-                        } else {
-                            elsebd.add(expr(tbctx));
+//        if (elseectx instanceof ParenExprContext) {
+//            ParenExprContext pctx = (ParenExprContext) elseectx;
+//            if (pctx.expr() instanceof BinaryExprContext) {
+        if (elseectx instanceof BinaryExprContext) {
+//                BinaryExprContext tbctx = (BinaryExprContext) pctx.expr();
+            BinaryExprContext tbctx = (BinaryExprContext) elseectx;
+//            if (tbctx.op.getText().equals("and") && tbctx.expr().get(0) instanceof ParenExprContext) {
+            if (tbctx.op.getText().equals("and")) {
+//                ParenExprContext ppctx = (ParenExprContext) tbctx.expr().get(0);
+//                    if (ppctx.expr() instanceof BinaryExprContext) {
+//                    BinaryExprContext bctx = (BinaryExprContext) ppctx.expr();
+                if (tbctx.expr().get(0) instanceof BinaryExprContext) {
+                    BinaryExprContext bctx = (BinaryExprContext) tbctx.expr().get(0);
+                    if(bctx.op.getText().equals("=")) {
+                        for (ExprContext ctxs : tbctx.expr()) {
+                            elsebd.add(expr(ctxs));
                         }
                     } else {
                         elsebd.add(expr(tbctx));
@@ -1088,15 +1265,20 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 } else {
                     elsebd.add(expr(tbctx));
                 }
-            }else {
-                elsebd.add(expr(pctx.expr()));
+            } else {
+                elsebd.add(expr(tbctx));
             }
-//        } else if (elseectx instanceof BoolExprContext) {
-//            elsebd.add(new ExitExpr());
         } else {
+//                elsebd.add(expr(pctx.expr()));
             elsebd.add(expr(elseectx));
         }
-        return new IfThenElseExpr(loc(ctx), expr(ctx.expr(0)), thenbd, elsebd);
+//        } else if (elseectx instanceof BoolExprContext) {
+//            elsebd.add(new ExitExpr());
+//        } else {
+//            elsebd.add(expr(elseectx));
+//        }
+//        return new IfThenElseExpr(loc(ctx), expr(ctx.expr(0)), thenbd, elsebd);
+        return new IfThenElseExpr(loc(pctx), expr(pctx.expr(0)), thenbd, elsebd);
     }
 
     private static Location loc(ParserRuleContext ctx) {

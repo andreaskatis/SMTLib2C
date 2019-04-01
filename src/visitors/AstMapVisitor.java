@@ -1,6 +1,8 @@
 package visitors;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import skolem.Ast;
 import skolem.Equation;
@@ -36,7 +38,8 @@ public class AstMapVisitor extends ExprMapVisitor implements AstVisitor<Ast, Exp
 	
 	@Override
 	public Scratch visit(Scratch scratch) {
-		return new Scratch(scratch.location, varDeclList(scratch.inputs), varDeclList(scratch.outputs), skolemList(scratch.skolems));
+        Map<String, List<Expr>> rngNames = new HashMap<>();
+		return new Scratch(scratch.location, varDeclList(scratch.inputs), varDeclList(scratch.outputs), skolemList(scratch.skolems), rngNames);
 	}
 
 	@Override

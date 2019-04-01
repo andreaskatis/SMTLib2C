@@ -1,5 +1,4 @@
-// Generated from SMTLIB2.g4 by ANTLR 4.4
-package parsing.smtlib;
+package parsing.smtlib;// Generated from /home/dr41k/git/SMTLib2C/src/parsing/smtlib/SMTLIB2.g4 by ANTLR 4.4
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.misc.NotNull;
@@ -197,18 +196,6 @@ public class SMTLIB2BaseListener implements SMTLIB2Listener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterParenExpr(@NotNull SMTLIB2Parser.ParenExprContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitParenExpr(@NotNull SMTLIB2Parser.ParenExprContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterNegateExpr(@NotNull SMTLIB2Parser.NegateExprContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -252,6 +239,18 @@ public class SMTLIB2BaseListener implements SMTLIB2Listener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitBoolExpr(@NotNull SMTLIB2Parser.BoolExprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterFunAppExpr(@NotNull SMTLIB2Parser.FunAppExprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitFunAppExpr(@NotNull SMTLIB2Parser.FunAppExprContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

@@ -1,5 +1,4 @@
-// Generated from SMTLIB2.g4 by ANTLR 4.4
-package parsing.smtlib;
+package parsing.smtlib;// Generated from /home/dr41k/git/SMTLib2C/src/parsing/smtlib/SMTLIB2.g4 by ANTLR 4.4
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;
 
@@ -110,13 +109,6 @@ public interface SMTLIB2Visitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitBoolType(@NotNull SMTLIB2Parser.BoolTypeContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code parenExpr}
-	 * labeled alternative in {@link SMTLIB2Parser#expr}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitParenExpr(@NotNull SMTLIB2Parser.ParenExprContext ctx);
-	/**
 	 * Visit a parse tree produced by the {@code negateExpr}
 	 * labeled alternative in {@link SMTLIB2Parser#expr}.
 	 * @param ctx the parse tree
@@ -143,6 +135,13 @@ public interface SMTLIB2Visitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitBoolExpr(@NotNull SMTLIB2Parser.BoolExprContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code funAppExpr}
+	 * labeled alternative in {@link SMTLIB2Parser#expr}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFunAppExpr(@NotNull SMTLIB2Parser.FunAppExprContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link SMTLIB2Parser#properties}.
 	 * @param ctx the parse tree

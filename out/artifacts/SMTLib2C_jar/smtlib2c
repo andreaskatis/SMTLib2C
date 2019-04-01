@@ -1,1 +1,1 @@
-java -Xverify:none -jar $(dirname $0)/SMTLib2C.jar "$@"
+java -Xss10M -Xverify:none -jar $(dirname $0)/SMTLib2C.jar "$@"

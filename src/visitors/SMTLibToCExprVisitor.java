@@ -3,6 +3,7 @@ package visitors;
 import ast.*;
 import skolem.*;
 
+import javax.swing.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,9 +16,18 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
         public CExpr visit(BinaryExpr e){
             CExpr leftExpr = e.left.accept(this);
             String opName = e.op.name();
-            CBinaryOp op = CBinaryOp.fromString(opName);
             CExpr rightExpr = e.right.accept(this);
-                return new CBinaryExpr(leftExpr, op, rightExpr);
+            if(opName.equals("IMPLIES")) {
+                return new CBinaryExpr((new CUnaryExpr(CUnaryOp.NOT, leftExpr)), CBinaryOp.OR, rightExpr);
+            }
+            CBinaryOp op = CBinaryOp.fromString(opName);
+            return new CBinaryExpr(leftExpr, op, rightExpr);
+        }
+
+        @Override
+        public CExpr visit(AssertExpr e) {
+            CExpr assertExpr = e.expr.accept(this);
+            return new CAssertExpr(assertExpr);
         }
 
         @Override
@@ -38,6 +48,14 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
             return new CCastExpr(e.type.accept(typeVisitor), e.expr.accept(this));
         }
 
+        @Override
+        public CExpr visit(FunAppExpr e) {
+            List<CExpr> funArgExprs = new ArrayList<>();
+            for (Expr funArg : e.funArgExprs) {
+                funArgExprs.add(funArg.accept(this));
+            }
+            return new CFunctionCall(e.funNameExpr.id, funArgExprs);
+        }
         @Override
         public CExpr visit(IdExpr e) {
             return new CIdExpr(e.id);

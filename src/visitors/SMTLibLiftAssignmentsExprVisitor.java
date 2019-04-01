@@ -28,10 +28,15 @@ public class SMTLibLiftAssignmentsExprVisitor implements ExprVisitor<List<Expr>>
         	}
         	*/
         	// MWW: end temporary
-        	
-        	assert(partition.get(Boolean.FALSE).isEmpty());
+//        	Andreas: the following is not always true (assertions might exist for rand values for fuzzer synthesis)
+//        	assert(partition.get(Boolean.FALSE).isEmpty());
         	
         	return partition.get(Boolean.TRUE);
+        }
+
+        public List<Expr> AssertExprList(List<Expr> original) {
+            Map<Boolean, List<Expr>> partition = partitionThenElseExprLists(original);
+            return partition.get(Boolean.FALSE);
         }
         
         // MWW: How do I do a zip operation in Java?
@@ -53,7 +58,15 @@ public class SMTLibLiftAssignmentsExprVisitor implements ExprVisitor<List<Expr>>
         	l.add(e);
         	return l;
         }
-        
+
+        @Override
+        public List<Expr> visit(AssertExpr e) {
+//            List<Expr> assertlist = new ArrayList<>();
+//            assertlist.add(new BoolExpr(true));
+//            return assertlist;
+            return mkList(e);
+        }
+
         @Override
         public List<Expr> visit(AssignExpr e) {
         	return mkList(e);
@@ -72,6 +85,9 @@ public class SMTLibLiftAssignmentsExprVisitor implements ExprVisitor<List<Expr>>
         }
 
         @Override
+        public List<Expr> visit(FunAppExpr e) { return mkList(e); }
+
+        @Override
         public List<Expr> visit(IdExpr e) {
         	return mkList(e);
         }
@@ -80,7 +96,7 @@ public class SMTLibLiftAssignmentsExprVisitor implements ExprVisitor<List<Expr>>
         protected Map<Boolean, List<Expr>> partitionThenElseExprLists(List<Expr> e) {
         	Map<Boolean, List<Expr>> result = e.stream().map(
                 	s -> s.accept(this)).flatMap(s -> s.stream()).
-        			collect(Collectors.partitioningBy(s -> s instanceof AssignExpr)); 
+        			collect(Collectors.partitioningBy(s -> s instanceof AssignExpr));
         	return result;
         }
 

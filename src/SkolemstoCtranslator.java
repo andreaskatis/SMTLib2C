@@ -10,7 +10,7 @@ import java.util.List;
 public class SkolemstoCtranslator {
     private static CVarDecl init = new CVarDecl("init",new CNamedType("static "+CNamedType.INT), new CIntExpr(BigInteger.valueOf(0)));
 
-    public static CProgram translate(Scratch scratch, String filename){
+    public static CProgram translate(Scratch scratch, String filename, boolean rng){
         String[] path = filename.split("[/]");
         String truename = path[path.length-1];
 
@@ -21,9 +21,8 @@ public class SkolemstoCtranslator {
         List<CFunction> functions = new ArrayList<>();
         List<CFunctionCallExpr> funcalls = new ArrayList<>();
 
-
-//        int arraysize = scratch.skolems.size() + 1;
-        int arraysize = scratch.skolems.size();
+        int arraysize = scratch.skolems.size() + 1;
+//        int arraysize = scratch.skolems.size();
 
         SMTLibToCExprVisitor exprVisitor = new SMTLibToCExprVisitor();
         SMTLibToCTypeVisitor typeVisitor = new SMTLibToCTypeVisitor();
@@ -63,16 +62,27 @@ public class SkolemstoCtranslator {
             equations.clear();
             i++;
         }
-        if (arraysize > 1) {
+
+        if (arraysize > 2) {
             CMoveHistory mh = addMoveHistory(arraysize-1,inputs, outputs);
             functions.add(mh);
             functions.add(addUpdateFunction(init, funcalls, mh));
             return new CProgram(init, truename, vars, functions);
 
         } else {
-            functions.add(addSingleSkolemUpdateFunction(init, funcalls));
+            CMoveHistory mh = addMoveHistory(arraysize-1,inputs, outputs);
+            functions.add(mh);
+            functions.add(addSingleSkolemUpdateFunction(init, funcalls, mh));
             return new CProgram(init, truename, vars, functions);
         }
+    }
+
+    private static CRNGFunction addRNGFunction(CNamedType retType) {
+        return new CRNGFunction("generateRandomValue", retType);
+    }
+
+    private static CRNGFunction addRNGFunctionExcl(CNamedType retType, int numOfArgs) {
+        return new CRNGFunction("generateRandomValueExcl", retType, numOfArgs);
     }
 
     private static String keywordRename(String name) {
@@ -84,16 +94,17 @@ public class SkolemstoCtranslator {
     }
 
 
-    public static CHeader addHeader(Scratch scratch, String filename) {
+    public static CHeader addHeader(Scratch scratch, String filename, boolean rng) {
         String[] path = filename.split("[/]");
         String truename = path[path.length-1];
         List<CArrayDecl> inputs = new ArrayList<>();
         List<CArrayDecl> outputs = new ArrayList<>();
         List<CFunction> functions = new ArrayList<>();
+        CNamedType rngType = null;
+        int numOfExclRngArgs = 0;
 
-
-//        int arraysize = scratch.skolems.size()+1;
-        int arraysize = scratch.skolems.size();
+        int arraysize = scratch.skolems.size()+1;
+//        int arraysize = scratch.skolems.size();
 
         SMTLibToCTypeVisitor typeVisitor = new SMTLibToCTypeVisitor();
 
@@ -114,6 +125,12 @@ public class SkolemstoCtranslator {
             CArrayDecl variable = new CArrayDecl(
                     new CIdExpr(varid),typeVisitor.visit(vartype), arraysize);
             outputs.add(variable);
+            if (varid.startsWith("aeval_tmp_rand")) {
+                rngType = (CNamedType) variable.type;
+                if (varid.contains("randneq")) {
+                    numOfExclRngArgs = scratch.rngNames.get("_"+varid).size();
+                }
+            }
         }
 
         for (int i = 0; i < arraysize; i++) {
@@ -122,6 +139,11 @@ public class SkolemstoCtranslator {
         }
         functions.add(new CMoveHistory());
         functions.add(new CUpdateFunction());
+        if (rng) {
+            functions.add(addRNGFunction(rngType));
+            functions.add(addRNGFunctionExcl(rngType, numOfExclRngArgs));
+        }
+
         CHeader header = new CHeader(truename, inputs, outputs, functions);
         return header;
     }
@@ -338,16 +360,17 @@ public class SkolemstoCtranslator {
                 return new CBoolExpr(false);
             } else if (id.contains("$")) {
                 String[] trunc = id.split("[$]");
-                String name = keywordRename(trunc[1].replaceAll("[~.|\\[\\]]","_"));
-                String striparrayindex = trunc[2].replaceAll("\\|","");
+                String name = keywordRename(trunc[1].replaceAll("[~.|\\[\\]]", "_"));
+                String striparrayindex = trunc[2].replaceAll("\\|", "");
                 String index = striparrayindex.replaceAll("~1", Integer.toString(i - 1));
 
                 Integer ind = Integer.valueOf(index);
                 if (ind >= i) {
                     return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(i)));
                 } else if (ind == -1) {
-                    return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(0)));
-                }else {
+//                    return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(1)));
+                    return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(1)));
+                } else {
                     return new CArrayAccessExpr(new CIdExpr(name), new CIntExpr(BigInteger.valueOf(ind)));
                 }
             } else if (id.startsWith("_aeval_tmp")) {
@@ -358,6 +381,9 @@ public class SkolemstoCtranslator {
         } else if (exp instanceof CBinaryExpr) {
             CBinaryExpr bexp = (CBinaryExpr) exp;
             return new CBinaryExpr(rename(bexp.left, i), bexp.op, rename(bexp.right, i));
+        } else if (exp instanceof CAssertExpr) {
+            CAssertExpr aexpr = (CAssertExpr) exp;
+            return new CAssertExpr(rename(aexpr.expr, i));
         } else if (exp instanceof CAssignment) {
             CAssignment aexp = (CAssignment) exp;
             return new CAssignment(rename(aexp.varToAssign, i), rename(aexp.expr, i));
@@ -370,6 +396,22 @@ public class SkolemstoCtranslator {
         } else if (exp instanceof CCastExpr) {
             CCastExpr cexp = (CCastExpr) exp;
             return new CCastExpr(cexp.type, rename(cexp.expr, i));
+        } else if (exp instanceof  CFunctionCall) {
+            String renamedId;
+            CFunctionCall cexp = (CFunctionCall) exp;
+            List<CExpr> renamedArgs = new ArrayList<>();
+            for (CExpr funArgExpr : cexp.funArgExprs) {
+                renamedArgs.add(rename(funArgExpr, i));
+            }
+            if (cexp.name.startsWith("_aeval_tmp")) {
+//                renamedId =
+                renamedId = cexp.name.substring(1);
+            } else {
+                //this might need to change in the future if we use non aeval_tmp function applications
+                //in the main skolem body
+                renamedId = cexp.name;
+            }
+            return new CFunctionCall(renamedId, renamedArgs);
         } else if (exp instanceof CUnaryExpr) {
             CUnaryExpr uexp = (CUnaryExpr) exp;
             return new CUnaryExpr(uexp.op, rename(uexp.expr, i));
@@ -419,11 +461,16 @@ public class SkolemstoCtranslator {
         List<CExpr> updates= new ArrayList<>();
         CVarDecl iter = new CVarDecl("iterator", CNamedType.INT);
         CIdExpr iterid = new CIdExpr(iter.id);
-//        CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(k)));
-        CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(0)));
-        CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.LESS, new CIntExpr(BigInteger.valueOf(k)));
-        CUnaryExpr incr = new CUnaryExpr(CUnaryOp.PLUSPLUS, iterid);
-        CBinaryExpr next = new CBinaryExpr(iterid, CBinaryOp.PLUS, new CIntExpr(BigInteger.valueOf(1)));
+        CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(k)));
+//        CAssignment iterassign = new CAssignment(iterid, new CIntExpr(BigInteger.valueOf(0)));
+//        CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.LESS, new CIntExpr(BigInteger.valueOf(k)));
+        CBinaryExpr cond = new CBinaryExpr(iterid, CBinaryOp.GREATER, new CIntExpr(BigInteger.valueOf(0)));
+//        CUnaryExpr incr = new CUnaryExpr(CUnaryOp.PLUSPLUS, iterid);
+        CUnaryExpr incr = new CUnaryExpr(CUnaryOp.MINUSMINUS, iterid);
+
+//        CBinaryExpr next = new CBinaryExpr(iterid, CBinaryOp.PLUS, new CIntExpr(BigInteger.valueOf(1)));
+        CBinaryExpr next = new CBinaryExpr(iterid, CBinaryOp.MINUS, new CIntExpr(BigInteger.valueOf(1)));
+
         for (CArrayDecl in : ins) {
             updates.add(new CArrayUpdateExpr(in.id,
                     iterid, new CArrayAccessExpr(in.id, next)));
@@ -443,9 +490,10 @@ public class SkolemstoCtranslator {
         return new CUpdateFunction(body);
     }
 
-    private static CUpdateFunction addSingleSkolemUpdateFunction(CVarDecl init, List<CFunctionCallExpr> calls){
+    private static CUpdateFunction addSingleSkolemUpdateFunction(CVarDecl init, List<CFunctionCallExpr> calls, CMoveHistory mh){
         CIdExpr initvar = new CIdExpr(init.id);
-        CExpr body = createSingleSkolemUpdateBody(initvar, calls, 0).get(0);
+        CFunctionCallExpr mhcall = new CFunctionCallExpr(mh.name);
+        CExpr body = createSingleSkolemUpdateBody(initvar, mhcall, calls, 0).get(0);
         return new CUpdateFunction(body);
     }
 
@@ -476,7 +524,7 @@ public class SkolemstoCtranslator {
         }
     }
 
-    private static List<CExpr> createSingleSkolemUpdateBody(CIdExpr init, List<CFunctionCallExpr> calls, int value) {
+    private static List<CExpr> createSingleSkolemUpdateBody(CIdExpr init, CFunctionCallExpr mhcall, List<CFunctionCallExpr> calls, int value) {
         List<CExpr> body = new ArrayList<>();
         List<CExpr> thenbody = new ArrayList<>();
         List<CExpr> elsebody = new ArrayList<>();
@@ -490,8 +538,10 @@ public class SkolemstoCtranslator {
 
         thenbody.add(calls.get(0));
         thenbody.add(initassign);
+        thenbody.add(mhcall);
 
         elsebody.add(calls.get(0));
+        elsebody.add(mhcall);
         body.add(new CIfThenElseExpr(cond, thenbody, elsebody));
 
         return body;
