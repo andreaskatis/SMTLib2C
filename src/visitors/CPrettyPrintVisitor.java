@@ -240,10 +240,11 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
         write(e.type + " " + e.name + "(");
         int numArgs = e.numOfArgs - 4;
         if (numArgs >= 0) {
-            for (int i = 0; i < numArgs - 1; i++) {
+            int i;
+            for (i = 0; i < numArgs - 1; i++) {
                 write(e.type + " " + "excl" + i + ", ");
             }
-            write(e.type + " " + "excl" + numArgs + ", ");
+            write(e.type + " " + "excl" + i + ", ");
         }
         write(CNamedType.BOOL + " " + "lflag, ");
         write(CNamedType.BOOL + " " + "uflag, ");
@@ -314,12 +315,17 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		return null;
 	}
 
+    //Currently assertions are being pushed at the outermost scope level.
+    //This causes issues in C as it shouldn't always be the case that all
+    //of the generated assertions hold.
+    //The corresponding expressions are not being generated, but it might
+    //prove useful to do so in the future.
     @Override
     public Void visit(CAssertExpr assertionExpr) {
-        write("assert(");
-        expr(assertionExpr.expr);
-        write(");");
-        newline();
+//        write("assert(");
+//        expr(assertionExpr.expr);
+//        write(");");
+//        newline();
         return null;
     }
 
@@ -573,8 +579,10 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		else {
 			write("(");
 			write(e.op);
+            write("(");
 			expr(e.expr);
 			write(")");
+            write(")");
 		}
 		return null;
 	}

@@ -82,7 +82,11 @@ public class SkolemstoCtranslator {
     }
 
     private static CRNGFunction addRNGFunctionExcl(CNamedType retType, int numOfArgs) {
-        return new CRNGFunction("generateRandomValueExcl", retType, numOfArgs);
+        if(numOfArgs > 5) {
+            return new CRNGFunction("generateRandomValueExcl" + (numOfArgs-4), retType, numOfArgs);
+        } else {
+            return new CRNGFunction("generateRandomValueExcl", retType, numOfArgs);
+        }
     }
 
     private static String keywordRename(String name) {
@@ -128,11 +132,14 @@ public class SkolemstoCtranslator {
             if (varid.startsWith("aeval_tmp_rand")) {
                 rngType = (CNamedType) variable.type;
                 if (varid.contains("randneq")) {
-                    numOfExclRngArgs = scratch.rngNames.get("_"+varid).size();
+                    int numOfArgs = scratch.rngNames.get("_"+varid).size();
+
+                    if (numOfArgs > numOfExclRngArgs) {
+                        numOfExclRngArgs = numOfArgs;
+                    }
                 }
             }
         }
-
         for (int i = 0; i < arraysize; i++) {
             String name = functionName+Integer.toString(i);
             functions.add(new CSkolemFunction(name));
@@ -141,7 +148,9 @@ public class SkolemstoCtranslator {
         functions.add(new CUpdateFunction());
         if (rng) {
             functions.add(addRNGFunction(rngType));
-            functions.add(addRNGFunctionExcl(rngType, numOfExclRngArgs));
+            for (int i = numOfExclRngArgs; i > 4; i--) {
+                functions.add(addRNGFunctionExcl(rngType, i));
+            }
         }
 
         CHeader header = new CHeader(truename, inputs, outputs, functions);
