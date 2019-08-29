@@ -146,7 +146,7 @@ public class SkolemstoCtranslator {
         }
         functions.add(new CMoveHistory());
         functions.add(new CUpdateFunction());
-        if (rng) {
+        if (rng && !scratch.rngNames.isEmpty()) {
             functions.add(addRNGFunction(rngType));
             for (int i = numOfExclRngArgs; i > 4; i--) {
                 functions.add(addRNGFunctionExcl(rngType, i));

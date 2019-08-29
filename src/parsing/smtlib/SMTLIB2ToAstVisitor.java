@@ -1,6 +1,8 @@
 package parsing.smtlib;
 
 import com.sun.org.apache.xpath.internal.operations.Bool;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import jkind.StdErr;
 import jkind.lustre.*;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -235,6 +237,9 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             body = convertBooleanValuesToExitExprs(body);
             body = foldConstantsinExprs(body);
             collectRngNamesFromExprs(body);
+            if (rngNames.isEmpty()) {
+                StdErr.warning("-rngvalues option was given, but skolem does not contain nondeterministic assignments. A deterministic implementation will be created.");
+            }
             body = addRNGfromExprs(body);
             return new Skolem(loc(ctx), locals, body);
         } else {
