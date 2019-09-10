@@ -378,6 +378,17 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         } else if (expr instanceof UnaryExpr) {
             UnaryExpr uexpr = (UnaryExpr) expr;
             return new UnaryExpr(uexpr.op, addRNGfromExpr(uexpr.expr));
+        } else if (expr instanceof TernaryExpr) {
+            TernaryExpr ternExpr = (TernaryExpr) expr;
+            List<Expr> newThenExprs = new ArrayList<>();
+            List<Expr> newElseExprs = new ArrayList<>();
+            for (Expr texpr : ternExpr.thenExpr) {
+                newThenExprs.add(addRNGfromExpr(texpr));
+            }
+            for (Expr eexpr : ternExpr.elseExpr) {
+                newElseExprs.add(addRNGfromExpr(eexpr));
+            }
+            return new TernaryExpr(addRNGfromExpr(ternExpr.cond), newThenExprs, newElseExprs);
         } else {
                 return expr;
         }
