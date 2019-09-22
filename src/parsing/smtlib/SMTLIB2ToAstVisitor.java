@@ -1,9 +1,6 @@
 package parsing.smtlib;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
-import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import jkind.StdErr;
-import jkind.lustre.*;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 
@@ -802,6 +799,18 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
     private Expr convertIfThenElseToTernaryExpr(Expr expr) {
         if (expr instanceof IfThenElseExpr) {
             IfThenElseExpr iteexpr = (IfThenElseExpr) expr;
+            if (iteexpr.thenExpr.size() > 1 || iteexpr.elseExpr.size() > 1) {
+                if (iteexpr.thenExpr.size() > 1) {
+                    Expr thenBinExp = rewriteOperandstoBinaryExpr(BinaryOp.AND, iteexpr.thenExpr);
+                    iteexpr.thenExpr.clear();
+                    iteexpr.thenExpr.add(thenBinExp);
+                }
+                if (iteexpr.elseExpr.size() > 1) {
+                    Expr elseBinExp = rewriteOperandstoBinaryExpr(BinaryOp.AND, iteexpr.elseExpr);
+                    iteexpr.elseExpr.clear();
+                    iteexpr.elseExpr.add(elseBinExp);
+                }
+            }
             return new TernaryExpr(convertIfThenElseToTernaryExpr(iteexpr.cond), convertNestedIfThenElsesToTernaryExprs(iteexpr.thenExpr), convertNestedIfThenElsesToTernaryExprs(iteexpr.elseExpr));
         } else if (expr instanceof BinaryExpr) {
             BinaryExpr binexp = (BinaryExpr) expr;
@@ -1089,12 +1098,12 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
         for (ExprContext ectx : ctx.expr().subList(1,ctx.expr().size())) {
             right.add(expr(ectx));
         }
-        return new BinaryExpr(loc(ctx.op), left, BinaryOp.fromString(op), rewriteBExpr(BinaryOp.fromString(op), right));
+        return new BinaryExpr(loc(ctx.op), left, BinaryOp.fromString(op), rewriteOperandstoBinaryExpr(BinaryOp.fromString(op), right));
     }
 
-    private Expr rewriteBExpr(BinaryOp binaryOp, List<Expr> right) {
+    private Expr rewriteOperandstoBinaryExpr(BinaryOp binaryOp, List<Expr> right) {
         if (right.size() > 1) {
-            return new BinaryExpr(right.get(0), binaryOp, rewriteBExpr(binaryOp, right.subList(1, right.size())));
+            return new BinaryExpr(right.get(0), binaryOp, rewriteOperandstoBinaryExpr(binaryOp, right.subList(1, right.size())));
         } else {
             return right.get(0);
         }

@@ -1,0 +1,5 @@
+Change directory to:
+SMTLIB2C repository/dep
+
+Run Command:
+java -jar antlr-4.4-complete.jar -o ~/git/SMTLib2C/src/parsing/parsing -visitor ~/git/SMTLib2C/src/parsing/smtlib/SMTLIB2.g4
