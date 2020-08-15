@@ -205,6 +205,11 @@ public class SMTLibPrettyPrintVisitor implements AstVisitor<Void, Void>, TypeVis
 		return null;
 	}
 
+    @Override
+    public Void visit(WhileExpr e) {
+        return null;
+    }
+
 	@Override
 	public Void visit(Equation e) {
 		expr(e.lhs);

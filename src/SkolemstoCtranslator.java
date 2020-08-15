@@ -461,6 +461,9 @@ public class SkolemstoCtranslator {
             }
             return new CForExpr(fexp.iter, (CAssignment) rename(fexp.iterassign, i),
                     rename(fexp.cond, i), rename(fexp.diff, i), bexp);
+        } else if (exp instanceof CWhileExpr) {
+            CWhileExpr wexp = (CWhileExpr) exp;
+            return new CWhileExpr(rename(wexp.condExpr, i), rename(wexp.bodyExpr, i));
         } else {
             return exp;
         }

@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.Token;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.tree.TerminalNode;
 import parsing.smtlib.SMTLIB2Parser.*;
@@ -257,11 +258,20 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 IfThenElseExpr iteexpr = (IfThenElseExpr) expr;
                 List<Expr> newThenExprs = new ArrayList<>();
                 for (Expr thenExpr : iteexpr.thenExpr) {
-                    newThenExprs.add(addRNGfromExpr(thenExpr));
+//                    if (thenExpr instanceof AssignExpr) {
+                        newThenExprs.addAll(addDisequalityBlock(thenExpr));
+//                    } else {
+//                        newThenExprs.add(addRNGfromExpr(thenExpr));
+//                    }
                 }
                 List<Expr> newElseExprs = new ArrayList<>();
                 for (Expr elseExpr : iteexpr.elseExpr) {
-                    newElseExprs.add(addRNGfromExpr(elseExpr));
+//                    newElseExprs.add(addRNGfromExpr(elseExpr));
+//                    if (elseExpr instanceof AssignExpr) {
+                        newElseExprs.addAll(addDisequalityBlock(elseExpr));
+//                    } else {
+//                        newElseExprs.add(addRNGfromExpr(elseExpr));
+//                    }
                 }
 
                 finalbody.add((new IfThenElseExpr(iteexpr.cond, newThenExprs, newElseExprs)));
@@ -270,6 +280,40 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             }
         }
         return finalbody;
+    }
+
+    private List<Expr> addDisequalityBlock(Expr expr) {
+        List<Expr> exprs = new ArrayList<>();
+        if (expr instanceof  AssignExpr) {
+            AssignExpr aexpr = (AssignExpr) expr;
+            exprs.add(addRNGfromExpr(aexpr));
+            if (aexpr.expr instanceof FunAppExpr) {
+                FunAppExpr fexpr = (FunAppExpr) aexpr.expr;
+                if (fexpr.funArgExprs.size() > 4) {
+                    BinaryExpr condExpr = new BinaryExpr(aexpr.lhs, BinaryOp.EQUAL, fexpr.funArgExprs.get(0));
+                    for (int i = 1; i < fexpr.funArgExprs.size() - 4; i++) {
+                        condExpr = new BinaryExpr(condExpr, BinaryOp.OR,
+                                new BinaryExpr(aexpr.lhs, BinaryOp.EQUAL, fexpr.funArgExprs.get(i)));
+                    }
+                    exprs.add(new WhileExpr(condExpr, addRNGfromExpr(aexpr)));
+                }
+            }
+            return exprs;
+        } else if (expr instanceof IfThenElseExpr) {
+            IfThenElseExpr iteExpr = (IfThenElseExpr) expr;
+            List<Expr> newThenExprs = new ArrayList<>();
+            List<Expr> newElseExprs = new ArrayList<>();
+            for (Expr thenExpr : iteExpr.thenExpr) {
+                newThenExprs.addAll(addDisequalityBlock(thenExpr));
+            }
+            for (Expr elseExpr : iteExpr.elseExpr) {
+                newElseExprs.addAll(addDisequalityBlock(elseExpr));
+            }
+            exprs.add((new IfThenElseExpr(addRNGfromExpr(iteExpr.cond), newThenExprs, newElseExprs)));
+        } else {
+            exprs.add(addRNGfromExpr(expr));
+        }
+        return exprs;
     }
 
     private void collectRngNamesFromExprs(List<Expr> exprs) {
@@ -339,22 +383,22 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
                 updatedFunArgs.add(addRNGfromExpr(arg));
             }
             if (rngNames.containsKey(funExpr.funNameExpr.id)) {
-                if (funExpr.funNameExpr.id.contains("randneq")) {
-                    if (updatedFunArgs.size() > 5) {
-//                        finalbody.add(new AssignExpr(funExpr.funNameExpr, new FunAppExpr(new IdExpr("generateRandomValueExcl" + (updatedFunArgs.size() - 4)),
-//                                updatedFunArgs)));
-                        return new FunAppExpr(new IdExpr("generateRandomValueExcl" + (updatedFunArgs.size() - 4)),
-                                updatedFunArgs);
-                    } else {
-//                        finalbody.add(new AssignExpr(funExpr.funNameExpr, new FunAppExpr(new IdExpr("generateRandomValueExcl"),
-//                                updatedFunArgs)));
-                        return new FunAppExpr(new IdExpr("generateRandomValueExcl"),
-                                updatedFunArgs);
-                    }
-                } else {
+//                if (funExpr.funNameExpr.id.contains("randneq")) {
+//                    if (updatedFunArgs.size() > 5) {
+////                        finalbody.add(new AssignExpr(funExpr.funNameExpr, new FunAppExpr(new IdExpr("generateRandomValueExcl" + (updatedFunArgs.size() - 4)),
+////                                updatedFunArgs)));
+//                        return new FunAppExpr(new IdExpr("generateRandomValueExcl" + (updatedFunArgs.size() - 4)),
+//                                updatedFunArgs);
+//                    } else {
+////                        finalbody.add(new AssignExpr(funExpr.funNameExpr, new FunAppExpr(new IdExpr("generateRandomValueExcl"),
+////                                updatedFunArgs)));
+//                        return new FunAppExpr(new IdExpr("generateRandomValueExcl"),
+//                                updatedFunArgs);
+//                    }
+//                } else {
 //                    finalbody.add(new AssignExpr(funExpr.funNameExpr, new FunAppExpr(new IdExpr("generateRandomValue"), updatedFunArgs)));
-                    return new FunAppExpr(new IdExpr("generateRandomValue"), updatedFunArgs);
-                }
+                    return new FunAppExpr(new IdExpr("generateRandomValue"), updatedFunArgs.subList(updatedFunArgs.size() - 4, updatedFunArgs.size()));
+//                }
 //                Expr assertExpr = addAssertionExpr(funExpr.funNameExpr, updatedFunArgs);
 //                if (assertExpr != null) {
 //                    finalbody.add(assertExpr);
@@ -387,7 +431,7 @@ public class SMTLIB2ToAstVisitor extends SMTLIB2BaseVisitor<Object> {
             }
             return new TernaryExpr(addRNGfromExpr(ternExpr.cond), newThenExprs, newElseExprs);
         } else {
-                return expr;
+            return expr;
         }
     }
 

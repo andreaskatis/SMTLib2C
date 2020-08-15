@@ -122,4 +122,11 @@ public class SMTLibToCExprVisitor implements ExprVisitor<CExpr> {
             return expr.accept(this);
         }
 
+        @Override
+        public CExpr visit(WhileExpr e) {
+            CExpr cond = e.condExpr.accept(this);
+            CExpr body = e.bodyExpr.accept(this);
+            return new CWhileExpr(cond, body);
+        }
+
     }

@@ -195,5 +195,6 @@ public class SMTLibLiftAssignmentsExprVisitor implements ExprVisitor<List<Expr>>
             return expr.accept(this);
         }
 
+        public List<Expr> visit(WhileExpr e) {return mkList(e);}
     }
 

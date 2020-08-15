@@ -155,6 +155,11 @@ public class SMTLibToLustreVisitor implements AstVisitor<jkind.lustre.Ast, jkind
         	throw new Error("Error: encountered ExitExpr [" + e + "] during translation to Lustre");
         }
 
+        @Override
+        public jkind.lustre.Expr visit(WhileExpr e) {
+            throw new Error("Error: encountered WhileExpr [" + e + "] during translation to Lustre");
+        }
+
         public jkind.lustre.Expr visit(Expr expr) {
             return expr.accept(this);
         }

@@ -82,4 +82,7 @@ public class ExprMapVisitor implements ExprVisitor<Expr> {
 		return new ExitExpr(e.location);
 	}
 
+    @Override
+    public Expr visit(WhileExpr e) { return new WhileExpr(e.condExpr, e.bodyExpr); }
+
 }

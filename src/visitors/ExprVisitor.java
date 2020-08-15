@@ -16,4 +16,5 @@ public interface ExprVisitor<T> {
     T visit(TernaryExpr e);
     T visit(UnaryExpr e);
     T visit(ExitExpr e);
+    T visit(WhileExpr e);
 }

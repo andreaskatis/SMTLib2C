@@ -593,6 +593,23 @@ public class CPrettyPrintVisitor implements CAstVisitor<Void, Void> {
 		return null;
 	}
 
+    @Override
+    public Void visit(CWhileExpr e) {
+        write("while ");
+        write("(");
+        expr(e.condExpr);
+        write(")");
+        write(" {");
+        newline();
+        write("    ");
+        expr(e.bodyExpr);
+        newline();
+        write("  }");
+        newline();
+
+        return null;
+    }
+
 
 
 

@@ -30,4 +30,5 @@ public interface CExprVisitor<T> {
 	T visit(CUpdateFunction e);
     T visit(CRNGFunction e);
 	T visit(LustreCHarnessMain e);
+    T visit(CWhileExpr e);
 }
